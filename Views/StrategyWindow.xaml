@@ -1,0 +1,281 @@
+﻿<Window x:Class="MoneyGenerator_v5.Views.StrategyWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:MoneyGenerator_v5.Common"
+        Title="Стратегия" Height="600" Width="650"
+        WindowStartupLocation="CenterOwner">
+
+
+    <Window.Resources>
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:StopLossUnitConverter x:Key="StopLossUnitConverter"/>
+    </Window.Resources>
+    
+    
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <Border Grid.Row="0" Background="#FF2D2D30" Padding="3">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <TextBlock Text="{Binding CurrentPrice}" Foreground="White" FontSize="16" FontWeight="Bold" Margin="35,0,35,0"/>
+                <TextBlock Text="{Binding Title}" Foreground="White" FontSize="16" FontWeight="Bold"/>
+            </StackPanel>
+        </Border>
+
+
+
+
+
+
+        <!-- Параметры стратегии с разделителем -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <!-- Левая панель - настройки стратегии -->
+                <ColumnDefinition Width="300" MinWidth="10"/>
+                <!-- Разделитель -->
+                <ColumnDefinition Width="5"/>
+                <!-- Правая панель - контроль стратегии -->
+                <ColumnDefinition Width="*" MinWidth="10"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Параметры -->
+            <!-- Левая панель - настройки стратегии -->
+            <Border Grid.Column="0" BorderBrush="LightGray" BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Заголовок настроек -->
+                    <Border Grid.Row="0" Background="#FF2196F3" Padding="3">
+                        <TextBlock Text="⚙️ Настройки стратегии" 
+                                   Foreground="White" 
+                                   FontWeight="Bold"
+                                   FontSize="11"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Параметры стратегии -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ContentControl Content="{Binding StrategySettingsControl}" Margin="2"/>
+                    </ScrollViewer>
+
+
+                </Grid>
+            </Border>
+
+            
+            
+            <!-- Разделитель -->
+            <GridSplitter Grid.Column="1" 
+                          Width="5" 
+                          HorizontalAlignment="Stretch" 
+                          VerticalAlignment="Stretch"
+                          Background="LightGray"
+                          ShowsPreview="True"
+                          Cursor="SizeWE"
+                          DragIncrement="5">
+                <GridSplitter.Resources>
+                    <Style TargetType="GridSplitter">
+                        <Setter Property="Background" Value="LightGray"/>
+                        <Setter Property="BorderBrush" Value="Gray"/>
+                        <Setter Property="BorderThickness" Value="1,0,1,0"/>
+                    </Style>
+                </GridSplitter.Resources>
+            </GridSplitter>
+            
+            
+            <!-- Логи -->
+            <!-- Правая панель - контроль стратегии -->
+            <Border Grid.Column="2">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Заголовок контроля -->
+                    <Border Grid.Row="0" Background="#FF4CAF50" Padding="3">
+                        <TextBlock Text="🎮 Контроль стратегии" 
+                                   Foreground="White" 
+                                   FontWeight="Bold"
+                                   FontSize="11"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+
+                    <!-- Контроль стратегии -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ContentControl Content="{Binding StrategyControlView}" Margin="2"/>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="2" Orientation="Vertical" Margin="2">
+
+                        <!-- Кнопки управления -->
+                        <Button Content="▶ Запустить стратегию" 
+                                Command="{Binding StartCommand}"
+                                Background="#4CAF50"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Height="22"
+                                Margin="0,0,0,3"/>
+
+                        <Button Content="⏹ Остановить стратегию" 
+                                Command="{Binding StopCommand}"
+                                Background="#F44336"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Height="22"
+                                Margin="0,0,0,3"/>
+
+
+
+                        <!-- Статус -->
+                        <Border Background="#FFF5F5F5" CornerRadius="3" Margin="0,3,0,3" Padding="5">
+                            <TextBlock Text="{Binding Status}"
+                                       HorizontalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       FontSize="12"/>
+                        </Border>
+
+                            <!--<Button Content="Обновить позиции" 
+                                Command="{Binding RefreshPositionsCommand}"
+                                Background="LightBlue"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Height="35"
+                                Margin="0,15,0,5"/>-->
+
+
+                            <!--<TextBlock Text="Обновленная позиция"
+                                  Margin="0,10,0,0"
+                                  HorizontalAlignment="Center"
+                                  FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding CurrentUpdPositions}"
+                                  Margin="0,10,0,0"
+                                  HorizontalAlignment="Center"
+                                  FontWeight="SemiBold"/>-->
+
+
+                        <Button Content="⚡ Оптимизация" 
+                                Command="{Binding OpenOptimizationCommand}"
+                                Background="#9C27B0"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Height="22"
+                                Margin="0,3,0,3"/>
+                        
+                        <Button Content="📖 Описание стратегии" 
+                                Command="{Binding GetDescriptionDtrategyCommand}"
+                                Background="#FF9800"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Height="22"
+                                Margin="0,3,0,3"/>
+
+                        <Button Content="📊 Показать график" 
+                                Command="{Binding ShowChartCommand}"
+                                Height="22"
+                                Margin="0,0,0,0"
+                                Background="#673AB7"
+                                Foreground="White"/>
+
+                    </StackPanel>
+                        
+                        
+                 
+
+                </Grid>
+            </Border>
+        </Grid>
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        <!-- Статус и прогресс-бар -->
+        <Border Grid.Row="2" Background="#FFF0F0F0" Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Прогресс-бар -->
+                <Grid Grid.Column="0" Visibility="{Binding IsProgressVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Текст прогресса -->
+                    <TextBlock Grid.Row="0" 
+                               Text="{Binding ProgressText}" 
+                               Margin="0,0,0,5" 
+                               VerticalAlignment="Center"
+                               FontSize="12"/>
+
+                    <!-- Прогресс-бар с процентами -->
+                    <Grid Grid.Row="1">
+                        <!-- Фоновый контейнер для прогресс-бара -->
+                        <Border BorderBrush="#CCCCCC" BorderThickness="1" CornerRadius="3">
+                            <Grid>
+                                <!-- Прогресс-бар -->
+                                <ProgressBar Value="{Binding ProgressValue}" 
+                                             Maximum="{Binding ProgressMaximum}"
+                                             Height="24"
+                                             Minimum="0"
+                                             Background="Transparent"
+                                             BorderBrush="Transparent">
+                                    <ProgressBar.Foreground>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#4CAF50" Offset="0"/>
+                                            <GradientStop Color="#8BC34A" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </ProgressBar.Foreground>
+                                </ProgressBar>
+
+                                <!-- Проценты поверх прогресс-бара -->
+                                <TextBlock Text="{Binding ProgressPercentage}" 
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="Black"
+                                           FontWeight="Bold"
+                                           FontSize="11"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- Обычный статус (когда нет прогресса) -->
+                <TextBlock Grid.Column="0" 
+                           Text="{Binding Status}" 
+                           VerticalAlignment="Center"
+                           Visibility="{Binding IsProgressVisible, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+
+                <!-- Текущий инструмент -->
+                <TextBlock Grid.Column="1" 
+                           Text="{Binding CurrentInstrument}" 
+                           FontWeight="Bold" Margin="10"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

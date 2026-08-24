@@ -1,0 +1,9 @@
+﻿<Application x:Class="MoneyGenerator_v5.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:common="clr-namespace:MoneyGenerator_v5.Common">
+
+    <Application.Resources>
+      
+    </Application.Resources>
+</Application>

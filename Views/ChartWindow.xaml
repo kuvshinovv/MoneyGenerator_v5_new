@@ -1,0 +1,144 @@
+﻿<Window x:Class="MoneyGenerator_v5.Views.ChartWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:MoneyGenerator_v5.Common"
+        xmlns:local="clr-namespace:MoneyGenerator_v5.ViewModels"
+        xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+        Title="График инструмента" Height="800" Width="1200"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="5">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Панель инструментов (верхняя) -->
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,5">
+            <Button Content="Обновить" Command="{Binding RefreshCommand}" 
+                    Padding="10,5" Margin="0,0,5,0"/>
+            <Button Content="Очистить линии" Command="{Binding ClearDrawingsCommand}" 
+                    Padding="10,5" Margin="0,0,5,0"/>
+            <Button Content="Экспорт" Command="{Binding ExportImageCommand}" 
+                    Padding="10,5" Margin="0,0,5,0"/>
+            <Button Content="Сброс зума" Command="{Binding ResetZoomCommand}" 
+                    Padding="10,5" Margin="0,0,5,0"/>
+
+            <ToggleButton Content="📊 Индикаторы" IsChecked="{Binding ShowIndicatorPanel}"
+                          Padding="10,5" Margin="5,0,0,0"/>
+
+            <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" 
+                       Margin="10,0,0,0" Foreground="Gray"/>
+        </StackPanel>
+
+        <!-- Панель индикаторов (слева) -->
+        <Border Grid.Row="1" Grid.Column="0" 
+                Width="{Binding IndicatorPanelWidth}"
+                Margin="0,0,5,0"
+                BorderBrush="LightGray" BorderThickness="1"
+                Visibility="{Binding ShowIndicatorPanel, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Заголовок -->
+                <Border Grid.Row="0" Background="LightGray" Padding="5">
+                    <TextBlock Text="Индикаторы" FontWeight="Bold" HorizontalAlignment="Center"/>
+                </Border>
+
+                <!-- Кнопки управления -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="5">
+                    <Button Content="Вкл все" Command="{Binding ToggleAllIndicatorsCommand}" 
+                            Padding="5,2" Margin="0,0,5,0"/>
+                    <Button Content="Выкл все" Command="{Binding ToggleAllIndicatorsCommand}" 
+                            Padding="5,2" Margin="0,0,5,0"/>
+                    <Button Content="Сброс" Command="{Binding ResetIndicatorsCommand}" 
+                            Padding="5,2"/>
+                </StackPanel>
+
+                <!-- Список индикаторов -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Indicators}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Чекбокс включения -->
+                                        <CheckBox Grid.Row="0" Grid.Column="0" 
+                                                  IsChecked="{Binding IsEnabled}"
+                                                  VerticalAlignment="Center"
+                                                  Margin="0,0,5,0"/>
+
+                                        <!-- Название индикатора -->
+                                        <TextBlock Grid.Row="0" Grid.Column="1" 
+                                                   Text="{Binding Name}" 
+                                                   FontWeight="Bold"
+                                                   ToolTip="{Binding Description}"/>
+
+                                        <!-- Поле для параметров -->
+                                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2" 
+                                                    Orientation="Horizontal" 
+                                                    Margin="20,2,0,0">
+                                            <TextBlock Text="Параметры: " FontSize="10" 
+                                                       VerticalAlignment="Center"/>
+                                            <TextBox Text="{Binding Parameters}" 
+                                                     Width="80" FontSize="10" 
+                                                     VerticalAlignment="Center"
+                                                     IsEnabled="{Binding IsEnabled}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Кнопка применения -->
+                <Button Grid.Row="3" Content="Применить изменения" 
+                        Command="{Binding ApplyIndicatorChangesCommand}"
+                        Margin="5" Padding="5" Background="LightBlue"/>
+            </Grid>
+        </Border>
+
+        <!-- График ScottPlot -->
+        <ContentControl Grid.Row="1" Grid.Column="1" 
+                        Content="{Binding PlotControl}" 
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+        <!-- Статусная строка -->
+        <StatusBar Grid.Row="2" Grid.ColumnSpan="2" Margin="0,5,0,0">
+            <StatusBarItem>
+                <TextBlock Text="Ctrl+ЛКМ - рисование линии с привязкой к High/Low"/>
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock Text="Колесо мыши - масштабирование"/>
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock Text="Зажатая ЛКМ - перемещение"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

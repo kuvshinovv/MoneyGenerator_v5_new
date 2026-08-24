@@ -1,0 +1,114 @@
+﻿<Window x:Class="MoneyGenerator_v5.Views.LoadSavedStrategiesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:MoneyGenerator_v5.Common"
+        Title="Загрузка сохраненных стратегий" Height="500" Width="700"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <!-- ✅ Все необходимые конвертеры -->
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:BooleanToYesNoConverter x:Key="BooleanToYesNoConverter"/>
+        <converters:CheckBoxBindingConverter x:Key="CheckBoxBindingConverter"/>
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <Border Grid.Row="0" Background="#FFF0F0F0" Padding="10" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="Сохраненные стратегии" FontWeight="Bold" FontSize="14"/>
+                <TextBlock Text="{Binding LoadingStatus}" Foreground="Gray" Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Список стратегий с поддержкой множественного выбора -->
+        <ListView Grid.Row="1" 
+          ItemsSource="{Binding Strategies}"
+          SelectionMode="Extended"
+          ScrollViewer.VerticalScrollBarVisibility="Auto"
+          IsSynchronizedWithCurrentItem="True">
+
+            <ListView.View>
+                <GridView>
+                    <!-- ✅ Упрощенный чекбокс для выбора -->
+                    <GridViewColumn Width="40">
+                        <GridViewColumn.Header>
+                            <CheckBox IsChecked="{Binding SelectAll, Mode=TwoWay}"
+                  Command="{Binding ToggleSelectAllCommand}"
+                  VerticalAlignment="Center"
+                  HorizontalAlignment="Center"/>
+                        </GridViewColumn.Header>
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      VerticalAlignment="Center"
+                      HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+
+                    <GridViewColumn Header="Тип стратегии" Width="100" DisplayMemberBinding="{Binding StrategyType}"/>
+                    <GridViewColumn Header="Инструмент" Width="100" DisplayMemberBinding="{Binding InstrumentTicker}"/>
+                    <GridViewColumn Header="Таймфрейм" Width="80" DisplayMemberBinding="{Binding Timeframe}"/>
+                    <GridViewColumn Header="Дата создания" Width="120" DisplayMemberBinding="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}"/>
+                    <GridViewColumn Header="Последний запуск" Width="120" DisplayMemberBinding="{Binding LastUsed, StringFormat=dd.MM.yyyy HH:mm}"/>
+                    <GridViewColumn Header="Автозапуск" Width="70">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding IsAutoStart, Converter={StaticResource BooleanToYesNoConverter}}" 
+                                   HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <!-- Кнопки действий -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Загрузить выбранные" 
+                    Command="{Binding LoadSelectedCommand}"
+                    Width="120" Margin="5"
+                    IsEnabled="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"/>
+
+            <Button Content="Загрузить все" 
+                    Command="{Binding LoadAllCommand}"
+                    Width="100" Margin="5"
+                    IsEnabled="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"/>
+
+            <Button Content="Удалить выбранные" 
+                    Command="{Binding DeleteSelectedCommand}"
+                    Width="120" Margin="5"
+                    Background="OrangeRed" Foreground="White"
+                    IsEnabled="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"/>
+
+            <Button Content="Удалить все" 
+                    Command="{Binding DeleteAllCommand}"
+                    Width="100" Margin="5"
+                    Background="Red" Foreground="White"
+                    IsEnabled="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"/>
+
+            <Button Content="Закрыть" 
+                    Command="{Binding CloseCommand}"
+                    Width="80" Margin="5"
+                    IsEnabled="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"/>
+        </StackPanel>
+
+        <!-- Прогресс загрузки -->
+        <Border Grid.Row="1" Background="#CCFFFFFF" 
+                Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
+                VerticalAlignment="Center" HorizontalAlignment="Center">
+            <StackPanel Margin="20">
+                <ProgressBar IsIndeterminate="True" Width="200" Height="20" Margin="0,0,0,10"/>
+                <TextBlock Text="{Binding LoadingStatus}" TextAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

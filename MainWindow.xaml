@@ -1,0 +1,616 @@
+﻿<Window x:Class="MoneyGenerator_v5.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:MoneyGenerator_v5.Common"
+        xmlns:viewModels="clr-namespace:MoneyGenerator_v5.ViewModels" 
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+        
+        Title="MoneyGenerator v5" Height="914" Width="503"
+        WindowStartupLocation="CenterScreen" Loaded="Window_Loaded">
+
+    <Window.Resources>
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <converters:StringToBrushConverter x:Key="StringToBrushConverter"/>
+        <converters:SearchFilterConverter x:Key="SearchFilterConverter"/>
+        <converters:BooleanToColorConverter x:Key="BooleanToColorConverter"/>
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:ProfitLossColorConverter x:Key="ProfitLossColorConverter"/>
+
+        <!-- Конвертеры для сделок -->
+        <converters:StatusToSymbolConverter x:Key="StatusToSymbolConverter"/>
+        <converters:DirectionToColorConverter x:Key="DirectionToColorConverter"/>
+        <converters:IsOpenDealConverter x:Key="IsOpenDealConverter"/>
+        <converters:ProfitToStyleConverter x:Key="ProfitToStyleConverter"/>
+        <converters:ProfitLossBrushConverter x:Key="ProfitLossBrushConverter"/>
+
+        <!-- Конвертер для проверки открытой операции -->
+        <converters:IsOpenOperationConverter x:Key="IsOpenOperationConverter"/>
+
+
+        <!-- Стиль для заголовков GridView с сортировкой -->
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Background" Value="#FFF0F0F0"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="Height" Value="28"/>
+        </Style>
+
+        <!-- Стиль для DataGrid заголовков -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Background" Value="#FFF0F0F0"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="Height" Value="28"/>
+        </Style>
+
+        <!-- Стиль для GridSplitter -->
+        <Style TargetType="GridSplitter">
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="#FFE0E0E0"/>
+            <Setter Property="BorderBrush" Value="#FFB0B0B0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="SizeNS"/>
+            <Setter Property="Margin" Value="0"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Header - фиксированная высота -->
+            <RowDefinition Height="Auto"/>
+            <!-- Strategyes - фиксированная высота -->
+            <RowDefinition Height="Auto"/>
+            <!-- Основная область с таблицами - занимает все оставшееся место -->
+            <RowDefinition Height="*"/>
+            <!-- Footer - фиксированная высота -->
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================ -->
+        <!-- HEADER - Панель подключения -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="0" Background="#FF2D2D30">
+            <StackPanel>
+                <!-- Системное меню -->
+                <Menu Background="Transparent" Foreground="White" Margin="0,0,0,0">
+                    <MenuItem Header="Система" Background="#FF2D2D30">
+                        <MenuItem Header="Загрузить запущенных роботов ранее" 
+                                  Background="#FF2D2D30"
+                                  Command="{Binding LoadSavedStrategiesCommand}">
+                            <MenuItem.Icon>
+                                <TextBlock Text="🤖" FontSize="13" Width="50"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Header="Очистка БД" Background="#FF2D2D30"
+                                  Command="{Binding ClearDatabaseCommand}"
+                                  IsEnabled="{Binding IsConnected, Converter={StaticResource InverseBoolConverter}}"
+                                  ToolTip="Очистить все данные из базы данных (только в отключенном состоянии)">
+                            <MenuItem.Icon>
+                                <TextBlock Text="🗑️" FontSize="13" Width="50"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator/>
+                        <MenuItem Header="Выход" Command="{Binding ExitCommand}" Background="#FF2D2D30">
+                            <MenuItem.Icon>
+                                <TextBlock Text="🚪" FontSize="13" Width="50"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </MenuItem>
+                    <MenuItem Header="Справка" Background="#FF2D2D30">
+                        <MenuItem Header="О программе" Command="{Binding AboutCommand}" Background="#FF2D2D30">
+                            <MenuItem.Icon>
+                                <TextBlock Text="ℹ️" FontSize="13" Width="50"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </MenuItem>
+                </Menu>
+
+                <WrapPanel>
+                    <TextBlock Text="Источник:" Foreground="White" VerticalAlignment="Center" Margin="7,0,10,0" FontSize="10"/>
+                    <ComboBox ItemsSource="{Binding DataSources}" SelectedItem="{Binding SelectedDataSource}"
+                              DisplayMemberPath="Name" Width="90" Height="20" 
+                              IsEnabled="{Binding IsConnected, Converter={StaticResource InverseBoolConverter}}" 
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="10"/>
+
+                    <CheckBox Content="Песочница" IsChecked="{Binding IsSandbox}" 
+                              VerticalAlignment="Center" Margin="20,0,10,0" Foreground="White" FontSize="10"/>
+
+                    <Button Content="{Binding ConnectionStatus}" Command="{Binding ConnectCommand}"
+                            Width="90" Height="20" Margin="20,0,0,0" FontSize="10"
+                            Background="{Binding ConnectionStatusColor}" FontWeight="Bold"/>
+
+                    <Button Content="⟳ Переподключить" 
+                            Command="{Binding ManualReconnectCommand}"
+                            Width="105" Height="20" Margin="10,0,0,0" FontSize="10"
+                            Background="Orange"/>
+
+                    <!-- Статусы рынков и счета -->
+                    <StackPanel Orientation="Vertical" Width="473" Margin="7,3,0,0">
+                        <ListView ItemsSource="{Binding MarketStatuses}" MaxHeight="80">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Рынок" DisplayMemberBinding="{Binding Name}" Width="150"/>
+                                    <GridViewColumn Header="Статус" DisplayMemberBinding="{Binding Status}" Width="120"/>
+                                    <GridViewColumn Header="Торги" Width="70">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Ellipse Width="10" Height="10" 
+                                                         Fill="{Binding IsTrading, Converter={StaticResource BooleanToColorConverter}}" 
+                                                         Stroke="Black" StrokeThickness="1" HorizontalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="Обновлено" DisplayMemberBinding="{Binding LastUpdate, StringFormat=HH:mm:ss}" Width="80"/>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+
+                        <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}"
+                                  DisplayMemberPath="DisplayName" IsEnabled="{Binding IsConnected}" Margin="1,3,1,0"/>
+                    </StackPanel>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- STRATEGIES - Панель выбора стратегии -->
+        <!-- ============================================================ -->
+        <Grid Grid.Row="1" Margin="5,5,5,5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <!-- Поиск инструментов -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Инструменты" FontWeight="Bold" Margin="0,0,0,0" FontSize="10" VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,5" Width="393" Height="22"/>
+                </StackPanel>
+
+                <!-- Список инструментов -->
+                <ListBox SelectedItem="{Binding SelectedInstrument}" Height="55" Width="470" Margin="0,0,0,5" 
+                         DisplayMemberPath="DisplayName">
+                    <ListBox.ItemsSource>
+                        <MultiBinding Converter="{StaticResource SearchFilterConverter}">
+                            <Binding Path="Instruments"/>
+                            <Binding Path="SearchText"/>
+                        </MultiBinding>
+                    </ListBox.ItemsSource>
+                </ListBox>
+
+                <!-- Выбор стратегии -->
+                <WrapPanel Margin="0,0,0,5">
+                    <TextBlock Text="Таймфрейм:" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="10"/>
+                    <ComboBox ItemsSource="{Binding TimeFrames}" SelectedItem="{Binding SelectedTimeFrame}" Width="70" FontSize="10"/>
+
+                    <TextBlock Text="Стратегия:" VerticalAlignment="Center" Margin="20,0,10,0" FontSize="10"/>
+                    <ComboBox ItemsSource="{Binding Strategies}" SelectedItem="{Binding SelectedStrategy}" Width="120" FontSize="10"/>
+
+                    <Button Content="Открыть стратегию" Command="{Binding OpenStrategyCommand}" Width="125" Margin="11,0,0,0"/>
+                </WrapPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- ============================================================ -->
+        <!-- ОСНОВНАЯ ОБЛАСТЬ - таблицы сделок и операций с GridSplitter -->
+        <!-- ============================================================ -->
+        <Grid Grid.Row="2" Margin="5,5,5,5">
+            <Grid.RowDefinitions>
+                <!-- Позиции - Auto -->
+                <RowDefinition Height="Auto"/>
+                <!-- Разделитель -->
+                <RowDefinition Height="4"/>
+                <!-- Журнал сделок - изначально 50% -->
+                <RowDefinition Height="*" MinHeight="100"/>
+                <!-- GridSplitter - разделитель, который можно перетаскивать -->
+                <RowDefinition Height="Auto"/>
+                <!-- Журнал операций - изначально 50% -->
+                <RowDefinition Height="*" MinHeight="100"/>
+            </Grid.RowDefinitions>
+
+            <!-- ========================================================== -->
+            <!-- ПОЗИЦИИ -->
+            <!-- ========================================================== -->
+            <Border Grid.Row="0" BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Margin="0,0,5,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Заголовок позиций -->
+                    <Border Grid.Row="0" Background="#FFF0F0F0" Padding="5">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                <TextBlock Text="Позиции" FontWeight="Bold" Margin="5,0,10,0"/>
+                                <TextBlock Text="{Binding Positions.Count, StringFormat=' ({0})'}" 
+                                           Foreground="Gray" Margin="5,0,10,0"/>
+                                <TextBlock Text="{Binding SelectedAccount.DisplayName, StringFormat='-   {0}' , UpdateSourceTrigger=PropertyChanged}" 
+                                           Foreground="DarkBlue" Margin="5,0"/>
+                            </StackPanel>
+
+                            <Button Grid.Column="2" Content="Обновить" 
+                                    Command="{Binding UPDPositionsManualyCommand}" 
+                                    Width="70" Margin="5,0"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Таблица позиций -->
+                    <ListView Grid.Row="1" ItemsSource="{Binding Positions}" 
+                              SelectedItem="{Binding SelectedPosition}"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                        <ListView.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="📊 Закрыть позицию" 
+                                          Command="{Binding ClosePositionCommand}"
+                                          CommandParameter="{Binding SelectedPosition}"/>
+                                <MenuItem Header="🔄 Перевернуть позицию" 
+                                          Command="{Binding FlipPositionCommand}"
+                                          CommandParameter="{Binding SelectedPosition}"/>
+                            </ContextMenu>
+                        </ListView.ContextMenu>
+
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Тикер" Width="100" DisplayMemberBinding="{Binding Ticker}"/>
+                                <GridViewColumn Header="Лотов" Width="70">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Quantity, StringFormat=F0}" HorizontalAlignment="Right"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Цена" Width="70">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding CurrentPrice, StringFormat=F2}" HorizontalAlignment="Right"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Стоимость" Width="100">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding TotalValue, StringFormat=F0}" HorizontalAlignment="Right"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="P/L" Width="70">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding PnL, StringFormat=F0}" HorizontalAlignment="Right"
+                                                       Foreground="{Binding PnL, Converter={StaticResource ProfitLossColorConverter}}"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
+            </Border>
+
+            
+                                      
+
+                           
+                        
+
+            <!-- ========================================================== -->
+            <!-- GRID SPLITTER - разделитель между таблицами -->
+            <!-- ========================================================== -->
+            <GridSplitter Grid.Row="3" 
+                          Height="6" 
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Center"
+                          Background="#FFE0E0E0"
+                          BorderBrush="#FFB0B0B0"
+                          BorderThickness="1"
+                          Cursor="SizeNS"
+                          Margin="0"
+                          ShowsPreview="True">
+                <GridSplitter.Resources>
+                    <Style TargetType="Thumb">
+                        <Setter Property="Height" Value="6"/>
+                        <Setter Property="MinHeight" Value="4"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Thumb">
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1">
+                                        <Grid>
+                                            <!-- Визуальный индикатор разделителя -->
+                                            <StackPanel Orientation="Horizontal" 
+                                                        HorizontalAlignment="Center" 
+                                                        VerticalAlignment="Center">
+                                                <Ellipse Width="3" Height="3" Fill="#FF666666" Margin="2,0"/>
+                                                <Ellipse Width="3" Height="3" Fill="#FF666666" Margin="2,0"/>
+                                                <Ellipse Width="3" Height="3" Fill="#FF666666" Margin="2,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </GridSplitter.Resources>
+            </GridSplitter>
+
+            <!-- ========================================================== -->
+            <!-- ЖУРНАЛ ОПЕРАЦИЙ (сгруппированный) ЖУРНАЛ ОПЕРАЦИЙ (объединенная таблица) -->
+            <!-- ========================================================== -->
+            <Border Grid.Row="4" BorderBrush="LightGray" BorderThickness="1" CornerRadius="3" Margin="0,0,5,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Заголовок операций -->
+                    <Border Grid.Row="0" Background="#FFF0F0F0" Padding="5">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <WrapPanel Grid.Column="0">
+                                <TextBlock Text="📊 Журнал сделок" FontWeight="Bold" Margin="5,0,10,0" FontSize="13"/>
+                                <TextBlock Text="{Binding ProcessedOperationsStatus}" Foreground="Gray" Margin="5,0,10,0"/>
+                            </WrapPanel>
+
+                            <WrapPanel Grid.Column="2">
+                                <CheckBox Content="🔍 Только открытые" 
+                                          IsChecked="{Binding ShowOnlyOpenOperations}" 
+                                          VerticalAlignment="Center" Margin="5,0"/>
+                                <TextBox Text="{Binding OperationsSearchText, UpdateSourceTrigger=PropertyChanged}" 
+                                         Width="120" Margin="5,0" 
+                                         ToolTip="Поиск по тикеру/стратегии/комментарию"/>
+                                <Button Content="⟳ Обновить" Command="{Binding RefreshOperationsCommand}" Width="70" Margin="5,0"/>
+                            </WrapPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Таблица операций -->
+                    <DataGrid Grid.Row="1" 
+                              ItemsSource="{Binding FilteredProcessedOperations}"   
+                              AutoGenerateColumns="False"
+                              CanUserSortColumns="True"
+                              IsReadOnly="True"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              AlternatingRowBackground="#FFF5F5F5"
+                              RowHeight="44"
+                              FontSize="10"
+                              SelectionMode="Single"
+                              SelectedItem="{Binding SelectedProcessedOperation}"
+                              Background="White">
+
+                        <!-- Контекстное меню для DataGrid -->
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="📊 Закрыть сделку" 
+                                          Command="{Binding CloseOperationCommand}"
+                                          CommandParameter="{Binding SelectedProcessedOperation}">
+                                    <MenuItem.IsEnabled>
+                                        <MultiBinding Converter="{StaticResource IsOpenOperationConverter}">
+                                            <Binding Path="SelectedProcessedOperation"/>
+                                        </MultiBinding>
+                                    </MenuItem.IsEnabled>
+                                </MenuItem>
+                                <MenuItem Header="🔄 Перевернуть сделку" 
+                                          Command="{Binding FlipOperationCommand}"
+                                          CommandParameter="{Binding SelectedProcessedOperation}">
+                                    <MenuItem.IsEnabled>
+                                        <MultiBinding Converter="{StaticResource IsOpenOperationConverter}">
+                                            <Binding Path="SelectedProcessedOperation"/>
+                                        </MultiBinding>
+                                    </MenuItem.IsEnabled>
+                                </MenuItem>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+
+                        <DataGrid.Resources>
+                            <!-- Стиль для ячеек с P&L -->
+                            <Style x:Key="ProfitCellStyle" TargetType="DataGridCell">
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="HorizontalAlignment" Value="Right"/>
+                                <Setter Property="Padding" Value="4,2"/>
+                            </Style>
+                        </DataGrid.Resources>
+
+                        <DataGrid.Columns>
+                            <!-- Статус + направление -->
+                            <DataGridTemplateColumn Header="Статус" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding StatusSymbol}" FontSize="14" Margin="0,0,3,0"/>
+                                            <TextBlock Text="{Binding StatusDisplay}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Тикер -->
+                            <DataGridTemplateColumn Header="Тикер" Width="65">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Ticker}" FontWeight="Bold" TextAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Стратегия -->
+                            <DataGridTemplateColumn Header="Стратегия" Width="70">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Strategy}" TextAlignment="Center" FontSize="9"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Направление -->
+                            <DataGridTemplateColumn Header="Напр." Width="50">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DirectionSymbol}" 
+                                                   Foreground="{Binding DirectionColor, Converter={StaticResource StringToBrushConverter}}"
+                                                   FontWeight="Bold" FontSize="14" TextAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Дата входа -->
+                            <DataGridTemplateColumn Header="Дата входа" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding FormattedOpenDate}" TextAlignment="Center" FontSize="9"/>
+                                            <TextBlock Text="{Binding FormattedOpenPrice}" Foreground="Gray" FontSize="8" TextAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Кол-во -->
+                            <DataGridTemplateColumn Header="Кол-во" Width="50">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding FormattedQuantity}" TextAlignment="Right"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Дата выхода -->
+                            <DataGridTemplateColumn Header="Дата выхода" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding FormattedCloseDate}" TextAlignment="Center" FontSize="9"/>
+                                            <TextBlock Text="{Binding FormattedClosePrice}" Foreground="Gray" FontSize="8" TextAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Комиссия -->
+                            <DataGridTemplateColumn Header="Комиссия" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding FormattedBuyFee}" FontSize="8" Foreground="Gray" TextAlignment="Right"/>
+                                            <TextBlock Text="{Binding FormattedSellFee}" FontSize="8" Foreground="Gray" TextAlignment="Right"/>
+                                            <TextBlock Text="{Binding FormattedTotalFee}" FontSize="9" FontWeight="Bold" TextAlignment="Right"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Валовая P/L -->
+                            <DataGridTemplateColumn Header="Валовая P/L" Width="85">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding FormattedGrossProfit}" 
+                                                   Foreground="{Binding GrossProfit, Converter={StaticResource ProfitLossBrushConverter}}"
+                                                   FontWeight="Bold" TextAlignment="Right"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Чистая P/L -->
+                            <DataGridTemplateColumn Header="Чистая P/L" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding ProfitBgColor}" CornerRadius="3" Padding="4,2">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding FormattedNetProfit}" 
+                                                           Foreground="{Binding ProfitColor}"
+                                                           FontWeight="Bold" HorizontalAlignment="Right"/>
+                                                <TextBlock Text="{Binding FormattedNetProfitPercent}" 
+                                                           FontSize="9" Foreground="Gray" HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Комментарий -->
+                            <DataGridTemplateColumn Header="Комментарий" Width="500">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Comment}" TextTrimming="CharacterEllipsis" FontSize="9" 
+                                                   ToolTip="{Binding Comment}" Foreground="#FF555555"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Итоговая строка -->
+                    <Border Grid.Row="2" Background="#FFF0F0F0" Padding="5" BorderThickness="0,1,0,0" BorderBrush="LightGray">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <TextBlock Text="ИТОГО:" FontWeight="Bold" FontSize="14" Margin="10,0,15,0"/>
+                                <TextBlock Text="Чистая:" FontWeight="Bold" Margin="0,0,5,0"/>
+                                <TextBlock Text="{Binding TotalProcessedNetProfit, StringFormat=F2}" 
+                                           FontWeight="Bold" FontSize="14"
+                                           Foreground="{Binding TotalProcessedNetProfitColor, Converter={StaticResource StringToBrushConverter}}"
+                                           Margin="0,0,15,0"/>
+                                <TextBlock Text="Валовая:" FontWeight="Bold" Margin="0,0,5,0"/>
+                                <TextBlock Text="{Binding TotalProcessedGrossProfit, StringFormat=F2}" 
+                                           FontWeight="Bold" FontSize="14"
+                                           Foreground="{Binding TotalProcessedGrossProfitColor, Converter={StaticResource StringToBrushConverter}}"/>
+                            </StackPanel>
+
+                            <WrapPanel Grid.Column="2">
+                                <TextBlock Text="Счет:" Foreground="DarkBlue" FontWeight="Bold" Margin="5,0,5,0"/>
+                                <TextBlock Text="{Binding SelectedAccount.DisplayName}" Foreground="DarkBlue" FontWeight="Bold"/>
+                                <Button Grid.Column="3" Content="📊 График эквити"   Margin="5,0,5,0"
+                                         Command="{Binding ShowEquityChartCommand}"
+                                         Height="22" Width="130"
+                                         Background="#FF007ACC" Foreground="White">
+                                </Button>
+                                
+                                <TextBlock Text="{Binding SelectedAccount.DisplayBalance}" Foreground="DarkGreen" FontWeight="Bold"/>
+                            </WrapPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============================================================ -->
+        <!-- FOOTER - Статусная строка -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="3" Background="#FF007ACC" Padding="10" Height="32">
+            <StackPanel Orientation="Horizontal" Margin="0,-10,0,-10">
+                <TextBlock Text="🌐 Сеть" 
+                           Margin="5,0,10,0" 
+                           VerticalAlignment="Center"
+                           Foreground="{Binding IsNetworkAvailable, Converter={StaticResource BooleanToColorConverter}}"
+                           Visibility="{Binding IsConnected, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="White" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

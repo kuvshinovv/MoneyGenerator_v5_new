@@ -1,0 +1,412 @@
+﻿<Window x:Class="MoneyGenerator_v5.Views.OptimizationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:MoneyGenerator_v5.Common"
+        Title="Оптимизация стратегии" Height="750" Width="1100"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:ProfitLossColorConverter x:Key="ProfitLossColorConverter"/>
+        <converters:ProfitLossSignConverter x:Key="ProfitLossSignConverter"/>
+
+        <converters:ParametersConverter x:Key="ParametersConverter"/>
+        <converters:ParametersTooltipConverter x:Key="ParametersTooltipConverter"/>
+
+        <!-- Стиль для DataGrid -->
+        <Style TargetType="DataGrid">
+            <Setter Property="BorderBrush" Value="#DDDDDD"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="RowHeight" Value="28"/>
+            <Setter Property="AlternatingRowBackground" Value="#FFF5F5F5"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="CanUserSortColumns" Value="True"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+        </Style>
+
+        <!-- Стиль для кнопок -->
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Стиль для заголовков с ToolTip -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FFF0F0F0"/>
+            <Setter Property="Foreground" Value="#333333"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="300"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Верхняя панель: информация и параметры -->
+        <Grid Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Информация об инструменте -->
+            <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#FF2D2D30" Padding="5">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🎯 Оптимизация:" FontWeight="Bold" Foreground="White" Margin="5,0,10,0"/>
+                    <TextBlock Text="{Binding InstrumentInfo}" Foreground="White" Margin="5,0,10,0"/>
+                    <TextBlock Text="|" Foreground="Gray" Margin="5,0,10,0"/>
+                    <TextBlock Text="Таймфрейм:" Foreground="White" Margin="5,0,5,0"/>
+                    <TextBlock Text="{Binding TimeframeInfo}" Foreground="White" Margin="0,0,10,0"/>
+                    <TextBlock Text="|" Foreground="Gray" Margin="5,0,10,0"/>
+                    <TextBlock Text="Статус:" Foreground="White" Margin="5,0,5,0"/>
+                    <TextBlock Text="{Binding OptimizationStatus}" Foreground="LightGreen" Margin="0,0,10,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Параметры -->
+            <Border Grid.Row="1" Grid.ColumnSpan="2" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Padding="5">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" MaxHeight="120">
+                        <StackPanel Orientation="Horizontal">
+                            <ItemsControl ItemsSource="{Binding Parameters}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="3" Margin="3" Padding="5">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+
+                                                <CheckBox Grid.Row="0" Content="{Binding DisplayName}" IsChecked="{Binding IsSelected}" 
+                                                          Margin="0,0,0,3" FontWeight="SemiBold" FontSize="10"/>
+                                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="От:" FontSize="9" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                    <TextBox Text="{Binding MinValue, StringFormat=F2, UpdateSourceTrigger=PropertyChanged}" 
+                                                             Width="40" FontSize="9" Margin="0,0,2,0"/>
+                                                    <TextBlock Text="До:" FontSize="9" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                    <TextBox Text="{Binding MaxValue, StringFormat=F2, UpdateSourceTrigger=PropertyChanged}" 
+                                                             Width="40" FontSize="9" Margin="0,0,2,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,2,0,2">
+                                                    <TextBlock Text="Шаг:" FontSize="9" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                    <TextBox Text="{Binding Step, StringFormat=F2, UpdateSourceTrigger=PropertyChanged}" 
+                                                             Width="40" FontSize="9"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,2,0,0">
+                                                    <TextBlock Text="Значений:" FontSize="9" Margin="0,0,2,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding ValueCount}" FontSize="9" FontWeight="Bold" Foreground="Blue"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Кнопки управления -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="5,0,0,0">
+                        <Button Content="▶ Старт" Command="{Binding StartOptimizationCommand}"
+                                Style="{StaticResource ActionButtonStyle}" Background="#4CAF50" Foreground="White"/>
+                        <Button Content="⏹ Стоп" Command="{Binding StopOptimizationCommand}"
+                                Style="{StaticResource ActionButtonStyle}" Background="#F44336" Foreground="White"/>
+                        <Button Content="📋 Применить" Command="{Binding ApplyParametersCommand}"
+                                Style="{StaticResource ActionButtonStyle}" Background="#2196F3" Foreground="White"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Прогресс и управление периодом -->
+            <Border Grid.Row="2" Grid.ColumnSpan="2" Background="#FFF5F5F5" Padding="5">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,10,0">
+                        <TextBlock Text="Период:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="SemiBold"/>
+                        <ComboBox ItemsSource="{Binding AvailablePeriods}" 
+                                  SelectedItem="{Binding SelectedPeriodDisplay}"
+                                  Width="100" Height="22" FontSize="10"/>
+                        <Button Content="📥 Загрузить историю" Command="{Binding LoadHistoryCommand}"
+                                Height="22" Margin="5,0" FontSize="9" Background="#2196F3" Foreground="White"/>
+                    </StackPanel>
+
+                    <!-- Прогресс-бар -->
+                    <Grid Grid.Column="1" Visibility="{Binding IsProgressVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ProgressBar Grid.Column="0" Value="{Binding ProgressValue}" Maximum="{Binding ProgressMaximum}"
+                                         Height="22" Minimum="0" Background="Transparent" BorderBrush="Transparent">
+                                <ProgressBar.Foreground>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#4CAF50" Offset="0"/>
+                                        <GradientStop Color="#8BC34A" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </ProgressBar.Foreground>
+                            </ProgressBar>
+
+                            <TextBlock Grid.Column="0" Text="{Binding ProgressText}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="10" FontWeight="SemiBold"/>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Статус -->
+                    <TextBlock Grid.Column="2" Text="{Binding LoadingStatus}" VerticalAlignment="Center" Margin="10,0,0,0"
+                               FontSize="10" Foreground="Gray"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <DataGrid x:Name="ResultsDataGrid" Grid.Row="1" ItemsSource="{Binding Results}" 
+          SelectedItem="{Binding SelectedResult, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+          Margin="0,5,0,5" FontSize="10" RowHeight="30"
+          AutoGenerateColumns="False" CanUserSortColumns="True" IsReadOnly="True">
+
+
+            <!-- ✅ ДОБАВЛЯЕМ КОНТЕКСТНОЕ МЕНЮ -->
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="📈 Посмотреть эквити" Click="ViewEquity_Click" 
+                      IsEnabled="{Binding SelectedResult.HasEquityData}">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📈" FontSize="16"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="📋 Копировать параметры" Click="CopyParameters_Click"/>
+                    <MenuItem Header="📋 Копировать результат" Click="CopyResult_Click"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+
+            <DataGrid.Columns>
+                <!-- Номер итерации -->
+                <DataGridTextColumn Header="#" Binding="{Binding Iteration}" Width="40" SortMemberPath="Iteration">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Порядковый номер комбинации параметров"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Параметры -->
+                <DataGridTemplateColumn Header="Параметры" Width="200" SortMemberPath="Parameters.Count">
+                    <DataGridTemplateColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Набор оптимизируемых параметров для данной комбинации"/>
+                        </Style>
+                    </DataGridTemplateColumn.HeaderStyle>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Parameters, Converter={StaticResource ParametersConverter}}" 
+                                       FontSize="9" TextTrimming="CharacterEllipsis" 
+                                       ToolTip="{Binding Parameters, Converter={StaticResource ParametersTooltipConverter}}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Чистая P/L - сортировка по NetProfit -->
+                <DataGridTextColumn Header="Чистая P/L" Width="85" SortMemberPath="NetProfit">
+                    <DataGridTextColumn.Binding>
+                        <MultiBinding StringFormat="{}{0}{1}">
+                            <Binding Path="NetProfit" Converter="{StaticResource ProfitLossSignConverter}"/>
+                            <Binding Path="FormattedNetProfit"/>
+                        </MultiBinding>
+                    </DataGridTextColumn.Binding>
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Чистая прибыль/убыток после всех сделок (Net Profit). Положительное значение = прибыль"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                    <DataGridTextColumn.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="Foreground" Value="{Binding NetProfit, Converter={StaticResource ProfitLossColorConverter}}"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                        </Style>
+                    </DataGridTextColumn.CellStyle>
+                </DataGridTextColumn>
+
+                <!-- Валовая P/L -->
+                <DataGridTextColumn Header="Валовая P/L" Binding="{Binding GrossProfit, StringFormat=F2}" Width="85" SortMemberPath="GrossProfit">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Суммарная прибыль от всех выигрышных сделок (Gross Profit)"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                    <DataGridTextColumn.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="Foreground" Value="{Binding GrossProfit, Converter={StaticResource ProfitLossColorConverter}}"/>
+                        </Style>
+                    </DataGridTextColumn.CellStyle>
+                </DataGridTextColumn>
+
+                <!-- Фактор прибыли -->
+                <DataGridTextColumn Header="Фактор прибыли" Binding="{Binding FormattedProfitFactor}" Width="85" SortMemberPath="ProfitFactor">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Profit Factor = Gross Profit / Gross Loss. Показывает соотношение прибыли к убыткам. > 1 = прибыльная стратегия"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Коэф. Шарпа -->
+                <DataGridTextColumn Header="Коэф. Шарпа" Binding="{Binding FormattedSharpeRatio}" Width="85" SortMemberPath="SharpeRatio">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Sharpe Ratio - отношение доходности к риску. Чем выше, тем лучше соотношение прибыли к волатильности"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Макс. просадка -->
+                <DataGridTextColumn Header="Макс. просадка" Binding="{Binding FormattedMaxDrawdown}" Width="90" SortMemberPath="MaxDrawdown">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Максимальная просадка капитала от пика до дна (в процентах). Показывает максимальный риск стратегии"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- % успешных -->
+                <DataGridTextColumn Header="% успешных" Binding="{Binding FormattedWinRate}" Width="80" SortMemberPath="WinRate">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Процент выигрышных сделок от общего количества. Win Rate = (Winning Trades / Total Trades) * 100%"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Всего сделок -->
+                <DataGridTextColumn Header="Всего сделок" Binding="{Binding FormattedTotalTrades}" Width="75" SortMemberPath="TotalTrades">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Общее количество совершенных сделок за период тестирования"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Выигрышные -->
+                <DataGridTextColumn Header="Выигрышные" Binding="{Binding WinningTrades}" Width="70" SortMemberPath="WinningTrades">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Количество прибыльных сделок"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Проигрышные -->
+                <DataGridTextColumn Header="Проигрышные" Binding="{Binding LosingTrades}" Width="70" SortMemberPath="LosingTrades">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Количество убыточных сделок"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Ср. выигрыш -->
+                <DataGridTextColumn Header="Ср. выигрыш" Binding="{Binding AverageWin, StringFormat=F2}" Width="80" SortMemberPath="AverageWin">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Средняя прибыль на одну выигрышную сделку"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Ср. проигрыш -->
+                <DataGridTextColumn Header="Ср. проигрыш" Binding="{Binding AverageLoss, StringFormat=F2}" Width="80" SortMemberPath="AverageLoss">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Средний убыток на одну проигрышную сделку"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Ожидание -->
+                <DataGridTextColumn Header="Ожидание" Binding="{Binding FormattedExpectancy}" Width="75" SortMemberPath="Expectancy">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Математическое ожидание прибыли на одну сделку. Expectancy = (Win Rate * Avg Win) - ((1 - Win Rate) * Avg Loss)"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+
+                <!-- Фактор восстановления -->
+                <DataGridTextColumn Header="Фактор восстановления" Binding="{Binding FormattedRecoveryFactor}" Width="100" SortMemberPath="RecoveryFactor">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Recovery Factor = Net Profit / Max Drawdown. Показывает, сколько раз стратегия может восстановить капитал после максимальной просадки"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Нижняя панель -->
+        <Border Grid.Row="2" Background="#FFF0F0F0" Padding="5" BorderBrush="#DDDDDD" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="Комбинаций:" FontWeight="SemiBold" Margin="5,5,5,0"/>
+                    <TextBlock Text="{Binding TotalCombinations}" Foreground="Blue" Margin="0,5,15,0"/>
+                    <TextBlock Text="Выполнено:" FontWeight="SemiBold" Margin="5,5,5,0"/>
+                    <TextBlock Text="{Binding CompletedCombinations}" Foreground="DarkSeaGreen" Margin="0,5,10,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="1" Text="{Binding BestResultSummary}" VerticalAlignment="Center" 
+                           FontWeight="SemiBold" Foreground="DarkGreen" TextWrapping="Wrap"/>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Content="🔄 Сбросить параметры" Command="{Binding RestoreOriginalParametersCommand}"
+                            Height="25" Margin="3,0" FontSize="10" Background="#FF9800" Foreground="White"/>
+                    <Button Content="❌ Закрыть" Click="CloseButton_Click" Height="25" Margin="3,0" FontSize="10"
+                            Background="#F44336" Foreground="White"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
