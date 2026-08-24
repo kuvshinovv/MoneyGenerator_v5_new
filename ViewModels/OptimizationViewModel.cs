@@ -3213,7 +3213,7 @@ namespace MoneyGenerator_v5.ViewModels
 
 
 
-            BestResultSummary = $"Лучший: P&L={result.NetProfit:F2}, Фактор={result.ProfitFactor:F2}, " +
+            BestResultSummary = $"Лучший {_instrumentInfo}: P&L={result.NetProfit:F2}, Фактор={result.ProfitFactor:F2}, " +
                                $"Сделок={result.TotalTrades}, Параметры: {paramSummary}";
             Debug.WriteLine($"[UpdateBestResultSummary] {BestResultSummary}");
             Debug.WriteLine("[UpdateBestResultSummary] КОНЕЦ");
