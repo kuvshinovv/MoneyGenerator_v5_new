@@ -16,17 +16,15 @@ namespace MoneyGenerator_v5.ViewModels
 {
     public partial class EquityOptimizationChartViewModel : ObservableObject, IDisposable
     {
-
         private string _tickerName;
         private string _timeFrame;
-
         private DateTime _currentData;
-
 
         private readonly OptimizationResult _result;
         private readonly WpfPlot _plot;
         private bool _disposed = false;
 
+        // Базовые свойства
         [ObservableProperty]
         private string _parametersSummary;
 
@@ -54,6 +52,37 @@ namespace MoneyGenerator_v5.ViewModels
         [ObservableProperty]
         private int _selectedDays = 0;
 
+        // ✅ НОВЫЕ СВОЙСТВА ДЛЯ ИНФОРМАЦИОННОЙ ПАНЕЛИ
+        [ObservableProperty]
+        private string _optimizationPeriodsFromTill;
+
+        [ObservableProperty]
+        private string _totalTradesInfo;
+
+        [ObservableProperty]
+        private string _winRateInfo;
+
+        [ObservableProperty]
+        private string _profitFactorInfo;
+
+        [ObservableProperty]
+        private string _sharpeRatioInfo;
+
+        [ObservableProperty]
+        private string _recoveryFactorInfo;
+
+        [ObservableProperty]
+        private string _overallRating;
+
+        [ObservableProperty]
+        private Brush _ratingColor;
+
+        [ObservableProperty]
+        private string _ratingStars;
+
+        [ObservableProperty]
+        private string _ratingDescription;
+
         public IRelayCommand SetFullHistoryCommand { get; }
         public IRelayCommand RefreshCommand { get; }
         public IRelayCommand ExportCommand { get; }
@@ -66,12 +95,12 @@ namespace MoneyGenerator_v5.ViewModels
             _timeFrame = result.TimeFrame;
             _currentData = result.EndDate;
 
-
             SetFullHistoryCommand = new RelayCommand(SetFullHistory);
             RefreshCommand = new RelayCommand(Refresh);
             ExportCommand = new RelayCommand(Export);
 
             InitializeData();
+            InitializeRating();
 
             // Настраиваем график
             ConfigurePlot();
@@ -88,7 +117,6 @@ namespace MoneyGenerator_v5.ViewModels
 
             // Параметры
             ParametersSummary = string.Join(" | ", _result.Parameters.Select(p => $"{p.Key}={p.Value:F2}"));
-
 
             // Капитал
             InitialCapital = _result.EquityHistory.FirstOrDefault();
@@ -120,6 +148,259 @@ namespace MoneyGenerator_v5.ViewModels
             else
             {
                 TotalDuration = "Нет данных";
+            }
+
+            // ✅ ПЕРИОД ОПТИМИЗАЦИИ
+            if (_result.StartDate != DateTime.MinValue && _result.EndDate != DateTime.MinValue)
+            {
+                OptimizationPeriodsFromTill = $"{_result.StartDate:dd.MM.yyyy HH:mm} — {_result.EndDate:dd.MM.yyyy HH:mm}";
+            }
+            else
+            {
+                OptimizationPeriodsFromTill = "Нет данных";
+            }
+
+            // ✅ ИНФОРМАЦИЯ О СДЕЛКАХ
+            TotalTradesInfo = _result.TotalTrades > 0
+                ? $"{_result.TotalTrades} сделок ({_result.WinningTrades} выигрышных, {_result.LosingTrades} проигрышных)"
+                : "Нет сделок";
+
+            WinRateInfo = _result.TotalTrades > 0
+                ? $"{_result.WinRate:F1}%"
+                : "Н/Д";
+
+            ProfitFactorInfo = _result.TotalTrades > 0
+                ? $"{_result.ProfitFactor:F2}"
+                : "Н/Д";
+
+            SharpeRatioInfo = _result.SharpeRatio != 0
+                ? $"{_result.SharpeRatio:F2}"
+                : "Н/Д";
+
+            RecoveryFactorInfo = _result.RecoveryFactor != 0
+                ? $"{_result.RecoveryFactor:F2}"
+                : "Н/Д";
+        }
+
+        /// <summary>
+        /// Вычисляет общую оценку результатов оптимизации
+        /// </summary>
+        private void InitializeRating()
+        {
+            if (_result.TotalTrades == 0 || _result.NetProfit == 0)
+            {
+                OverallRating = "Нет данных для оценки";
+                RatingColor = new SolidColorBrush(System.Windows.Media.Colors.Gray);
+                RatingStars = "☆☆☆☆☆";
+                RatingDescription = "Недостаточно данных для оценки";
+                return;
+            }
+
+            // ✅ СИСТЕМА ОЦЕНКИ ПО МНОЖЕСТВУ КРИТЕРИЕВ
+            int score = 0;
+            int maxScore = 0;
+            List<string> strengths = new List<string>();
+            List<string> weaknesses = new List<string>();
+
+            // 1. Прибыльность (макс. 30 баллов)
+            maxScore += 30;
+            if (_result.NetProfit > 0)
+            {
+                if (_result.NetProfit > 10000)
+                {
+                    score += 30;
+                    strengths.Add("Высокая прибыль (>10 000 ₽)");
+                }
+                else if (_result.NetProfit > 5000)
+                {
+                    score += 25;
+                    strengths.Add("Хорошая прибыль (>5 000 ₽)");
+                }
+                else if (_result.NetProfit > 1000)
+                {
+                    score += 20;
+                    strengths.Add("Умеренная прибыль (>1 000 ₽)");
+                }
+                else
+                {
+                    score += 10;
+                    strengths.Add("Небольшая прибыль");
+                }
+            }
+            else
+            {
+                weaknesses.Add($"Убыток: {_result.NetProfit:F2} ₽");
+            }
+
+            // 2. Win Rate (макс. 20 баллов)
+            maxScore += 20;
+            if (_result.WinRate >= 70)
+            {
+                score += 20;
+                strengths.Add($"Отличный Win Rate: {_result.WinRate:F1}%");
+            }
+            else if (_result.WinRate >= 55)
+            {
+                score += 15;
+                strengths.Add($"Хороший Win Rate: {_result.WinRate:F1}%");
+            }
+            else if (_result.WinRate >= 40)
+            {
+                score += 10;
+            }
+            else
+            {
+                weaknesses.Add($"Низкий Win Rate: {_result.WinRate:F1}%");
+            }
+
+            // 3. Profit Factor (макс. 20 баллов)
+            maxScore += 20;
+            if (_result.ProfitFactor >= 2.0m)
+            {
+                score += 20;
+                strengths.Add($"Отличный Profit Factor: {_result.ProfitFactor:F2}");
+            }
+            else if (_result.ProfitFactor >= 1.5m)
+            {
+                score += 15;
+                strengths.Add($"Хороший Profit Factor: {_result.ProfitFactor:F2}");
+            }
+            else if (_result.ProfitFactor >= 1.2m)
+            {
+                score += 10;
+            }
+            else
+            {
+                weaknesses.Add($"Низкий Profit Factor: {_result.ProfitFactor:F2}");
+            }
+
+            // 4. Max Drawdown (макс. 15 баллов)
+            maxScore += 15;
+            if (_result.MaxDrawdown < 5)
+            {
+                score += 15;
+                strengths.Add($"Минимальная просадка: {_result.MaxDrawdown:F1}%");
+            }
+            else if (_result.MaxDrawdown < 15)
+            {
+                score += 10;
+                strengths.Add($"Умеренная просадка: {_result.MaxDrawdown:F1}%");
+            }
+            else if (_result.MaxDrawdown < 30)
+            {
+                score += 5;
+            }
+            else
+            {
+                weaknesses.Add($"Высокая просадка: {_result.MaxDrawdown:F1}%");
+            }
+
+            // 5. Sharpe Ratio (макс. 10 баллов)
+            maxScore += 10;
+            if (_result.SharpeRatio >= 1.0m)
+            {
+                score += 10;
+                strengths.Add($"Отличный Sharpe: {_result.SharpeRatio:F2}");
+            }
+            else if (_result.SharpeRatio >= 0.5m)
+            {
+                score += 6;
+                strengths.Add($"Хороший Sharpe: {_result.SharpeRatio:F2}");
+            }
+            else if (_result.SharpeRatio > 0)
+            {
+                score += 3;
+            }
+            else
+            {
+                weaknesses.Add($"Отрицательный Sharpe: {_result.SharpeRatio:F2}");
+            }
+
+            // 6. Количество сделок (макс. 5 баллов)
+            maxScore += 5;
+            if (_result.TotalTrades >= 30)
+            {
+                score += 5;
+                strengths.Add($"Достаточная статистика: {_result.TotalTrades} сделок");
+            }
+            else if (_result.TotalTrades >= 10)
+            {
+                score += 3;
+            }
+            else
+            {
+                weaknesses.Add($"Мало сделок: {_result.TotalTrades}");
+            }
+
+            // ✅ ВЫЧИСЛЯЕМ ПРОЦЕНТ ОЦЕНКИ
+            double percent = maxScore > 0 ? (double)score / maxScore * 100 : 0;
+
+            // ✅ ОПРЕДЕЛЯЕМ РЕЙТИНГ (используем System.Windows.Media.Colors)
+            string ratingText;
+            System.Windows.Media.Color color;
+            string stars;
+            string description;
+
+            if (percent >= 85)
+            {
+                ratingText = "Отлично";
+                color = System.Windows.Media.Colors.Green;
+                stars = "⭐⭐⭐⭐⭐";
+                description = "Отличные результаты! Стратегия показывает стабильную прибыль с хорошим соотношением риск/прибыль.";
+            }
+            else if (percent >= 70)
+            {
+                ratingText = "Хорошо";
+                color = System.Windows.Media.Colors.LightGreen;
+                stars = "⭐⭐⭐⭐";
+                description = "Хорошие результаты. Стратегия работает эффективно, но есть куда расти.";
+            }
+            else if (percent >= 55)
+            {
+                ratingText = "Средне";
+                color = System.Windows.Media.Colors.Gold;
+                stars = "⭐⭐⭐";
+                description = "Удовлетворительные результаты. Рекомендуется доработать параметры.";
+            }
+            else if (percent >= 40)
+            {
+                ratingText = "Ниже среднего";
+                color = System.Windows.Media.Colors.Orange;
+                stars = "⭐⭐";
+                description = "Результаты ниже ожидаемых. Требуется пересмотр стратегии.";
+            }
+            else
+            {
+                ratingText = "Неудовлетворительно";
+                color = System.Windows.Media.Colors.Red;
+                stars = "⭐";
+                description = "Результаты неудовлетворительные. Рекомендуется полностью пересмотреть стратегию.";
+            }
+
+            OverallRating = $"{ratingText} ({percent:F0}%)";
+            RatingColor = new SolidColorBrush(color);
+            RatingStars = stars;
+            RatingDescription = description;
+
+            // ✅ ДОБАВЛЯЕМ ДЕТАЛЬНЫЙ АНАЛИЗ В ОПИСАНИЕ
+            if (strengths.Any() || weaknesses.Any())
+            {
+                var details = new List<string>();
+
+                if (strengths.Any())
+                {
+                    details.Add("✅ Сильные стороны:");
+                    details.AddRange(strengths.Select(s => $"   • {s}"));
+                }
+
+                if (weaknesses.Any())
+                {
+                    if (details.Any()) details.Add("");
+                    details.Add("⚠️ Слабые стороны:");
+                    details.AddRange(weaknesses.Select(w => $"   • {w}"));
+                }
+
+                RatingDescription = string.Join("\n", details);
             }
         }
 

@@ -3,7 +3,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
-        Title="График эквити оптимизации" Height="550" Width="900"
+        Title="График эквити оптимизации" Height="700" Width="1000"
         WindowStartupLocation="CenterOwner"
         Background="#F5F5F5">
 
@@ -18,10 +18,17 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Margin" Value="0,0,15,0"/>
         </Style>
+        <Style TargetType="TextBlock" x:Key="RatingLabelStyle">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#666666"/>
+            <Setter Property="Margin" Value="0,0,5,0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -36,8 +43,101 @@
             </StackPanel>
         </Border>
 
-        <!-- Статистика -->
+        <!-- ✅ ИНФОРМАЦИОННАЯ ПАНЕЛЬ С ОЦЕНКОЙ -->
         <Border Grid.Row="1" Background="White" Padding="10" Margin="0,0,0,10" CornerRadius="5">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Период оптимизации -->
+                <Border Grid.Row="0" Grid.Column="0" Background="#FFF0F8FF" CornerRadius="4" Padding="5" Margin="2">
+                    <StackPanel>
+                        <TextBlock Text="📅 Период" FontWeight="Bold" FontSize="11" Foreground="#2980B9"/>
+                        <TextBlock Text="{Binding OptimizationPeriod}" FontSize="10" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Сделки -->
+                <Border Grid.Row="0" Grid.Column="1" Background="#FFF0FFF0" CornerRadius="4" Padding="5" Margin="2">
+                    <StackPanel>
+                        <TextBlock Text="📊 Сделки" FontWeight="Bold" FontSize="11" Foreground="#27AE60"/>
+                        <TextBlock Text="{Binding TotalTradesInfo}" FontSize="10" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Win Rate -->
+                <Border Grid.Row="0" Grid.Column="2" Background="#FFFFFFF0" CornerRadius="4" Padding="5" Margin="2">
+                    <StackPanel>
+                        <TextBlock Text="🎯 Win Rate" FontWeight="Bold" FontSize="11" Foreground="#F39C12"/>
+                        <TextBlock Text="{Binding WinRateInfo}" FontSize="10"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Profit Factor -->
+                <Border Grid.Row="0" Grid.Column="3" Background="#FFF5F0FF" CornerRadius="4" Padding="5" Margin="2">
+                    <StackPanel>
+                        <TextBlock Text="📈 Profit Factor" FontWeight="Bold" FontSize="11" Foreground="#8E44AD"/>
+                        <TextBlock Text="{Binding ProfitFactorInfo}" FontSize="10"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Sharpe Ratio -->
+                <Border Grid.Row="0" Grid.Column="4" Background="#FFFFF5F0" CornerRadius="4" Padding="5" Margin="2">
+                    <StackPanel>
+                        <TextBlock Text="📉 Sharpe Ratio" FontWeight="Bold" FontSize="11" Foreground="#E67E22"/>
+                        <TextBlock Text="{Binding SharpeRatioInfo}" FontSize="10"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Recovery Factor -->
+                <Border Grid.Row="0" Grid.Column="5" Background="#FFFFF0F5" CornerRadius="4" Padding="5" Margin="2">
+                    <StackPanel>
+                        <TextBlock Text="🔄 Recovery Factor" FontWeight="Bold" FontSize="11" Foreground="#C0392B"/>
+                        <TextBlock Text="{Binding RecoveryFactorInfo}" FontSize="10"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- ✅ ОБЩАЯ ОЦЕНКА -->
+                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Background="#FFF8F8F8" CornerRadius="4" Padding="8" Margin="2,5,2,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Рейтинг звездами -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
+                            <TextBlock Text="⭐ Оценка:" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding RatingStars}" FontSize="16" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Рейтинг текстом -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
+                            <TextBlock Text="{Binding OverallRating}" FontWeight="Bold" FontSize="13" 
+                                       Foreground="{Binding RatingColor}" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Описание -->
+                        <TextBlock Grid.Column="2" Text="{Binding RatingDescription}" FontSize="10" 
+                                   Foreground="#555555" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Статистика (была в строке 1, теперь строка 2) -->
+        <Border Grid.Row="2" Background="White" Padding="10" Margin="0,0,0,10" CornerRadius="5">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -77,12 +177,12 @@
         </Border>
 
         <!-- График -->
-        <Border Grid.Row="2" Background="White" CornerRadius="5" Padding="5">
+        <Border Grid.Row="3" Background="White" CornerRadius="5" Padding="5">
             <ScottPlot:WpfPlot x:Name="EquityPlot" />
         </Border>
 
         <!-- Кнопки управления -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
             <Button Content="Вся история" Command="{Binding SetFullHistoryCommand}" 
                     Margin="5" Padding="15,8" Background="#3498DB" Foreground="White" BorderThickness="0" Cursor="Hand">
                 <Button.Resources>
