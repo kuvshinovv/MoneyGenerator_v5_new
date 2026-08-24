@@ -86,12 +86,48 @@ namespace MoneyGenerator_v5.ViewModels
 
         [ObservableProperty]
         private string _ratingDescriptionStrengths;
-        
 
-
-            [ObservableProperty]
+        [ObservableProperty]
         private string _ratingDescriptionweaknesses;
-        
+
+
+        // ✅ НОВЫЕ СВОЙСТВА ДЛЯ TOOLTIP
+        [ObservableProperty]
+        private string _toolTipInitialCapital;
+
+        [ObservableProperty]
+        private string _toolTipFinalCapital;
+
+        [ObservableProperty]
+        private string _toolTipTotalProfit;
+
+        [ObservableProperty]
+        private string _toolTipMaxDrawdown;
+
+        [ObservableProperty]
+        private string _toolTipWinRate;
+
+        [ObservableProperty]
+        private string _toolTipProfitFactor;
+
+        [ObservableProperty]
+        private string _toolTipSharpeRatio;
+
+        [ObservableProperty]
+        private string _toolTipRecoveryFactor;
+
+        [ObservableProperty]
+        private string _toolTipTotalTrades;
+
+        [ObservableProperty]
+        private string _toolTipOptimizationPeriod;
+
+        [ObservableProperty]
+        private string _toolTipOverallRating;
+
+
+
+
 
         public IRelayCommand SetFullHistoryCommand { get; }
         public IRelayCommand RefreshCommand { get; }
@@ -111,6 +147,7 @@ namespace MoneyGenerator_v5.ViewModels
 
             InitializeData();
             InitializeRating();
+            InitializeToolTips();
 
             // Настраиваем график
             ConfigurePlot();
@@ -191,6 +228,142 @@ namespace MoneyGenerator_v5.ViewModels
                 ? $"{_result.RecoveryFactor:F2}"
                 : "Н/Д";
         }
+
+        /// <summary>
+        /// Инициализирует подробные ToolTip для всех элементов
+        /// </summary>
+        private void InitializeToolTips()
+        {
+            // Начальный капитал
+            ToolTipInitialCapital =
+                "💵 Начальный капитал\n" +
+                "═══════════════════════\n" +
+                $"Сумма на счете в начале торговли: {InitialCapital:F2} ₽\n\n" +
+                "📌 Это стартовая точка для расчета P&L.\n" +
+                "Используется как база для сравнения результатов.";
+
+            // Конечный капитал
+            ToolTipFinalCapital =
+                "💵 Конечный капитал\n" +
+                "═══════════════════════\n" +
+                $"Сумма на счете в конце периода: {FinalCapital:F2} ₽\n\n" +
+                "📌 Итоговый результат торговли.\n" +
+                $"{(FinalCapital >= InitialCapital ? "✅ Прибыль" : "❌ Убыток")} за весь период.";
+
+            // P&L
+            ToolTipTotalProfit =
+                "📊 Прибыль/Убыток (P&L)\n" +
+                "═══════════════════════\n" +
+                $"Общий финансовый результат: {TotalProfit:F2} ₽\n\n" +
+                "📌 Рассчитывается как:\n" +
+                "   P&L = Конечный капитал - Начальный капитал\n\n" +
+                "✅ Положительное значение = прибыль\n" +
+                "❌ Отрицательное значение = убыток";
+
+            // Максимальная просадка
+            ToolTipMaxDrawdown =
+                "📉 Максимальная просадка\n" +
+                "═══════════════════════\n" +
+                $"Максимальная просадка: {MaxDrawdown:F1}%\n\n" +
+                "📌 Показывает максимальное падение капитала\n" +
+                "от пикового значения в процентах.\n\n" +
+                "⚠️ Важный показатель риска:\n" +
+                $"{(MaxDrawdown < 5 ? "✅ Низкий риск" : MaxDrawdown < 15 ? "🟡 Средний риск" : "🔴 Высокий риск")}";
+
+            // Win Rate
+            ToolTipWinRate =
+                "🎯 Win Rate (процент выигрышных сделок)\n" +
+                "══════════════════════════════════════\n" +
+                $"Процент выигрышных сделок: {_result.WinRate:F1}%\n\n" +
+                "📌 Рассчитывается как:\n" +
+                "   Win Rate = (Выигрышные / Всего сделок) × 100%\n\n" +
+                $"📊 Сделок: {_result.TotalTrades}\n" +
+                $"   ✅ Выигрышных: {_result.WinningTrades}\n" +
+                $"   ❌ Проигрышных: {_result.LosingTrades}\n\n" +
+                $"{(_result.WinRate >= 55 ? "✅ Хороший показатель" : "⚠️ Требуется улучшение")}";
+
+            // Profit Factor
+            ToolTipProfitFactor =
+                "📈 Profit Factor (Фактор прибыли)\n" +
+                "══════════════════════════════════\n" +
+                $"Отношение прибыли к убыткам: {_result.ProfitFactor:F2}\n\n" +
+                "📌 Рассчитывается как:\n" +
+                "   Profit Factor = Сумма прибыли / Сумма убытков\n\n" +
+                "📊 Интерпретация:\n" +
+                $"   • > 2.0  = {(_result.ProfitFactor >= 2.0m ? "✅" : "⬜")} Отличный результат\n" +
+                $"   • 1.5-2.0 = {(_result.ProfitFactor >= 1.5m && _result.ProfitFactor < 2.0m ? "✅" : "⬜")} Хороший результат\n" +
+                $"   • 1.2-1.5 = {(_result.ProfitFactor >= 1.2m && _result.ProfitFactor < 1.5m ? "🟡" : "⬜")} Удовлетворительный\n" +
+                $"   • < 1.2  = {(_result.ProfitFactor < 1.2m && _result.ProfitFactor > 0 ? "❌" : "⬜")} Требует улучшения";
+
+            // Sharpe Ratio
+            ToolTipSharpeRatio =
+                "📉 Sharpe Ratio (Коэффициент Шарпа)\n" +
+                "════════════════════════════════════\n" +
+                $"Коэффициент Шарпа: {_result.SharpeRatio:F2}\n\n" +
+                "📌 Показывает доходность на единицу риска.\n" +
+                "Чем выше значение, тем лучше соотношение риск/прибыль.\n\n" +
+                "📊 Интерпретация:\n" +
+                $"   • > 1.0  = {(_result.SharpeRatio >= 1.0m ? "✅" : "⬜")} Отличный результат\n" +
+                $"   • 0.5-1.0 = {(_result.SharpeRatio >= 0.5m && _result.SharpeRatio < 1.0m ? "🟡" : "⬜")} Хороший результат\n" +
+                $"   • 0-0.5   = {(_result.SharpeRatio > 0 && _result.SharpeRatio < 0.5m ? "⚠️" : "⬜")} Удовлетворительный\n" +
+                $"   • < 0    = {(_result.SharpeRatio < 0 ? "❌" : "⬜")} Отрицательный результат";
+
+            // Recovery Factor
+            ToolTipRecoveryFactor =
+                "🔄 Recovery Factor (Фактор восстановления)\n" +
+                "═══════════════════════════════════════\n" +
+                $"Фактор восстановления: {_result.RecoveryFactor:F2}\n\n" +
+                "📌 Показывает, насколько быстро капитал\n" +
+                "восстанавливается после просадок.\n\n" +
+                "📊 Рассчитывается как:\n" +
+                "   Recovery Factor = P&L / Макс.просадка\n\n" +
+                $"{(RecoveryFactorInfo != "Н/Д" && _result.RecoveryFactor > 1.0m ? "✅ Хорошее восстановление" : "⚠️ Медленное восстановление")}";
+
+            // Total Trades
+            ToolTipTotalTrades =
+                "📊 Статистика сделок\n" +
+                "═══════════════════════\n" +
+                $"Всего сделок: {_result.TotalTrades}\n" +
+                $"✅ Выигрышных: {_result.WinningTrades}\n" +
+                $"❌ Проигрышных: {_result.LosingTrades}\n\n" +
+                "📌 Чем больше сделок, тем статистически\n" +
+                "значимее результаты стратегии.\n\n" +
+                $"{(RecoveryFactorInfo != "Н/Д" && _result.TotalTrades >= 30 ? "✅ Достаточная статистика" : "⚠️ Мало сделок для надежных выводов")}";
+
+            // Optimization Period
+            ToolTipOptimizationPeriod =
+                "📅 Период оптимизации\n" +
+                "═══════════════════════\n" +
+                $"Период: {OptimizationPeriodsFromTill}\n\n" +
+                "📌 Исторический период, на котором\n" +
+                "проводилась оптимизация параметров.\n\n" +
+                "⚠️ Важно: Результаты могут не сохраняться\n" +
+                "при торговле на других временных интервалах.";
+
+            // Overall Rating
+            ToolTipOverallRating =
+                "⭐ Общая оценка стратегии\n" +
+                "═══════════════════════\n" +
+                $"Рейтинг: {OverallRating}\n" +
+                $"Звезды: {RatingStars}\n\n" +
+                "📌 Комплексная оценка основана на:\n" +
+                "   • Прибыльности (P&L)\n" +
+                "   • Проценте выигрышных сделок\n" +
+                "   • Факторе прибыли\n" +
+                "   • Максимальной просадке\n" +
+                "   • Коэффициенте Шарпа\n" +
+                "   • Количестве сделок\n\n" +
+                $"{(OverallRating.Contains("Отлично") ? "✅ Стратегия готова к использованию!" :
+                  OverallRating.Contains("Хорошо") ? "🟡 Стратегия требует доработки." :
+                  "🔴 Стратегия требует пересмотра.")}";
+        }
+
+
+
+
+
+
+
 
         /// <summary>
         /// Вычисляет общую оценку результатов оптимизации

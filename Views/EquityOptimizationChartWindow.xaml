@@ -24,6 +24,33 @@
             <Setter Property="Margin" Value="0,0,5,0"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+
+        <!-- ✅ Стиль для элементов с ToolTip -->
+        <Style TargetType="TextBlock" x:Key="ToolTipTextBlockStyle">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="300"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="30000"/>
+        </Style>
+
+        <Style TargetType="Border" x:Key="InfoBorderStyle">
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="300"/>
+            <Setter Property="ToolTipService.ShowDuration" Value="30000"/>
+            <Setter Property="ToolTip">
+                <Setter.Value>
+                    <TextBlock Text="Загрузка подсказки..." 
+                               FontSize="11" 
+                               TextWrapping="Wrap" 
+                               MaxWidth="350"
+                               Padding="5"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="10">
@@ -43,8 +70,8 @@
             </StackPanel>
         </Border>
 
-        <!-- ✅ ИНФОРМАЦИОННАЯ ПАНЕЛЬ С ОЦЕНКОЙ -->
-        <Border Grid.Row="1" Background="White"  Margin="0,0,0,10" CornerRadius="5">
+        <!-- ✅ ИНФОРМАЦИОННАЯ ПАНЕЛЬ С ОЦЕНКОЙ (С TOOLTIP) -->
+        <Border Grid.Row="1" Background="White" Margin="0,0,0,10" CornerRadius="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -60,55 +87,61 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Период оптимизации -->
-                <Border Grid.Row="0" Grid.Column="0" Background="#FFF0F8FF" CornerRadius="4" Padding="5" Margin="2">
+                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource InfoBorderStyle}" 
+                        Background="#FFF0F8FF" ToolTip="{Binding ToolTipOptimizationPeriod}">
                     <StackPanel>
                         <TextBlock Text="📅 Глубина оптимизации (период)" FontWeight="Bold" FontSize="11" Foreground="#2980B9"/>
-                        <TextBlock Text="{Binding OptimizationPeriodsFromTill}" FontSize="10" TextWrapping="Wrap"  Padding="10"/>
+                        <TextBlock Text="{Binding OptimizationPeriodsFromTill}" Style="{StaticResource ToolTipTextBlockStyle}"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Сделки -->
-                <Border Grid.Row="0" Grid.Column="1" Background="#FFF0FFF0" CornerRadius="4" Padding="5" Margin="2">
+                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource InfoBorderStyle}" 
+                        Background="#FFF0FFF0" ToolTip="{Binding ToolTipTotalTrades}">
                     <StackPanel>
                         <TextBlock Text="📊 Сделки" FontWeight="Bold" FontSize="11" Foreground="#27AE60"/>
-                        <TextBlock Text="{Binding TotalTradesInfo}" FontSize="10" TextWrapping="Wrap" Padding="10"/>
+                        <TextBlock Text="{Binding TotalTradesInfo}" Style="{StaticResource ToolTipTextBlockStyle}"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Win Rate -->
-                <Border Grid.Row="0" Grid.Column="2" Background="#FFFFFFF0" CornerRadius="4" Padding="5" Margin="2">
+                <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource InfoBorderStyle}" 
+                        Background="#FFFFFFF0" ToolTip="{Binding ToolTipWinRate}">
                     <StackPanel>
                         <TextBlock Text="🎯 Win Rate" FontWeight="Bold" FontSize="11" Foreground="#F39C12"/>
-                        <TextBlock Text="{Binding WinRateInfo}" FontSize="10" Padding="10"/>
+                        <TextBlock Text="{Binding WinRateInfo}" Style="{StaticResource ToolTipTextBlockStyle}"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Profit Factor -->
-                <Border Grid.Row="0" Grid.Column="3" Background="#FFF5F0FF" CornerRadius="4" Padding="5" Margin="2">
+                <Border Grid.Row="0" Grid.Column="3" Style="{StaticResource InfoBorderStyle}" 
+                        Background="#FFF5F0FF" ToolTip="{Binding ToolTipProfitFactor}">
                     <StackPanel>
                         <TextBlock Text="📈 Profit Factor" FontWeight="Bold" FontSize="11" Foreground="#8E44AD"/>
-                        <TextBlock Text="{Binding ProfitFactorInfo}" FontSize="10" Padding="10"/>
+                        <TextBlock Text="{Binding ProfitFactorInfo}" Style="{StaticResource ToolTipTextBlockStyle}"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Sharpe Ratio -->
-                <Border Grid.Row="0" Grid.Column="4" Background="#FFFFF5F0" CornerRadius="4" Padding="5" Margin="2">
+                <Border Grid.Row="0" Grid.Column="4" Style="{StaticResource InfoBorderStyle}" 
+                        Background="#FFFFF5F0" ToolTip="{Binding ToolTipSharpeRatio}">
                     <StackPanel>
                         <TextBlock Text="📉 Sharpe Ratio" FontWeight="Bold" FontSize="11" Foreground="#E67E22"/>
-                        <TextBlock Text="{Binding SharpeRatioInfo}" FontSize="10" Padding="10"/>
+                        <TextBlock Text="{Binding SharpeRatioInfo}" Style="{StaticResource ToolTipTextBlockStyle}"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Recovery Factor -->
-                <Border Grid.Row="0" Grid.Column="5" Background="#FFFFF0F5" CornerRadius="4" Padding="5" Margin="2">
+                <Border Grid.Row="0" Grid.Column="5" Style="{StaticResource InfoBorderStyle}" 
+                        Background="#FFFFF0F5" ToolTip="{Binding ToolTipRecoveryFactor}">
                     <StackPanel>
                         <TextBlock Text="🔄 Recovery Factor" FontWeight="Bold" FontSize="11" Foreground="#C0392B"/>
-                        <TextBlock Text="{Binding RecoveryFactorInfo}" FontSize="10" Padding="10"/>
+                        <TextBlock Text="{Binding RecoveryFactorInfo}" Style="{StaticResource ToolTipTextBlockStyle}"/>
                     </StackPanel>
                 </Border>
 
                 <!-- ✅ ОБЩАЯ ОЦЕНКА -->
-                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Background="#FFF8F8F8" CornerRadius="4"  Margin="2,5,2,0">
+                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Background="#FFF8F8F8" CornerRadius="4" Margin="2,5,2,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -120,27 +153,37 @@
                         <!-- Рейтинг звездами -->
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
                             <TextBlock Text="⭐ Оценка:" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="{Binding RatingStars}" FontSize="16" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding RatingStars}" FontSize="16" VerticalAlignment="Center"
+                                       ToolTip="{Binding ToolTipOverallRating}"/>
                         </StackPanel>
 
                         <!-- Рейтинг текстом -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,15,0">
                             <TextBlock Text="{Binding OverallRating}" FontWeight="Bold" FontSize="13" 
-                                       Foreground="{Binding RatingColor}" VerticalAlignment="Center"/>
+                                       Foreground="{Binding RatingColor}" VerticalAlignment="Center"
+                                       ToolTip="{Binding ToolTipOverallRating}"/>
                         </StackPanel>
 
-                        <!-- Описание -->
-                        <TextBlock Grid.Column="2" Text="{Binding RatingDescriptionStrengths}" FontSize="10" 
-                                   Foreground="#555555" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="3" Text="{Binding RatingDescriptionweaknesses}" FontSize="10" 
-                                    Foreground="#555555" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        <!-- Сильные стороны -->
+                        <Border Grid.Column="2" Background="#F0FFF0" CornerRadius="3" Margin="2,0,2,0" Padding="3"
+                                ToolTip="Сильные стороны стратегии (наведите для деталей)">
+                            <TextBlock Text="{Binding RatingDescriptionStrengths}" FontSize="10" 
+                                       Foreground="#2E7D32" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- Слабые стороны -->
+                        <Border Grid.Column="3" Background="#FFF0F0" CornerRadius="3" Margin="2,0,2,0" Padding="3"
+                                ToolTip="Слабые стороны стратегии (наведите для деталей)">
+                            <TextBlock Text="{Binding RatingDescriptionWeaknesses}" FontSize="10" 
+                                       Foreground="#C62828" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        </Border>
                     </Grid>
                 </Border>
             </Grid>
         </Border>
 
-        <!-- Статистика (была в строке 1, теперь строка 2) -->
-        <Border Grid.Row="2" Background="White"  Margin="0,0,0,10" CornerRadius="5">
+        <!-- Статистика -->
+        <Border Grid.Row="2" Background="White" Margin="0,0,0,10" CornerRadius="5">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -150,31 +193,39 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
+                <!-- Начальный капитал -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Style="{StaticResource StatLabelStyle}" Text="Нач. капитал:"/>
-                    <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding InitialCapital, StringFormat=F2}" Foreground="#2980B9"/>
+                    <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding InitialCapital, StringFormat=F2}" 
+                               Foreground="#2980B9" ToolTip="{Binding ToolTipInitialCapital}"/>
                 </StackPanel>
 
+                <!-- Конечный капитал -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Style="{StaticResource StatLabelStyle}" Text="Кон. капитал:"/>
                     <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding FinalCapital, StringFormat=F2}" 
-                               Foreground="{Binding FinalCapitalColor}"/>
+                               Foreground="{Binding FinalCapitalColor}" ToolTip="{Binding ToolTipFinalCapital}"/>
                 </StackPanel>
 
+                <!-- P&L -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Style="{StaticResource StatLabelStyle}" Text="P&amp;L:"/>
                     <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding TotalProfit, StringFormat=F2}" 
-                               Foreground="{Binding ProfitColor}"/>
+                               Foreground="{Binding ProfitColor}" ToolTip="{Binding ToolTipTotalProfit}"/>
                 </StackPanel>
 
+                <!-- Макс. просадка -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Style="{StaticResource StatLabelStyle}" Text="Макс. просадка %:"/>
-                    <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding MaxDrawdown, StringFormat=F1 }"  Foreground="#E74C3C"/>
+                    <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding MaxDrawdown, StringFormat=F1 }"  
+                               Foreground="#E74C3C" ToolTip="{Binding ToolTipMaxDrawdown}"/>
                 </StackPanel>
 
+                <!-- Период -->
                 <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Style="{StaticResource StatLabelStyle}" Text="Период:"/>
-                    <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding TotalDuration}" Foreground="#7F8C8D"/>
+                    <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding TotalDuration}" 
+                               Foreground="#7F8C8D" ToolTip="Длительность торгового периода (от первой до последней сделки)"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -193,13 +244,23 @@
                         <Setter Property="CornerRadius" Value="4"/>
                     </Style>
                 </Button.Resources>
+                <Button.ToolTip>
+                    <TextBlock Text="Показать всю историю эквити\nбез ограничений по периоду" 
+                               FontSize="11" TextWrapping="Wrap"/>
+                </Button.ToolTip>
             </Button>
             <Button Content="⟳ Обновить" Command="{Binding RefreshCommand}" 
-                    Margin="5" Padding="15,8" Background="#2ECC71" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+                    Margin="5" Padding="15,8" Background="#2ECC71" Foreground="White" BorderThickness="0" Cursor="Hand">
+                <Button.ToolTip>Обновить график эквити</Button.ToolTip>
+            </Button>
             <Button Content="💾 Экспорт" Command="{Binding ExportCommand}" 
-                    Margin="5" Padding="15,8" Background="#F39C12" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+                    Margin="5" Padding="15,8" Background="#F39C12" Foreground="White" BorderThickness="0" Cursor="Hand">
+                <Button.ToolTip>Сохранить график в PNG или JPG</Button.ToolTip>
+            </Button>
             <Button Content="✖ Закрыть" Click="CloseButton_Click" 
-                    Margin="5" Padding="15,8" Background="#E74C3C" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+                    Margin="5" Padding="15,8" Background="#E74C3C" Foreground="White" BorderThickness="0" Cursor="Hand">
+                <Button.ToolTip>Закрыть окно графика эквити</Button.ToolTip>
+            </Button>
         </StackPanel>
     </Grid>
 </Window>
