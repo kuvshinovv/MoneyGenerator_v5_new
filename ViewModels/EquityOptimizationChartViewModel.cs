@@ -80,8 +80,18 @@ namespace MoneyGenerator_v5.ViewModels
         [ObservableProperty]
         private string _ratingStars;
 
+        //[ObservableProperty]
+        //private string _ratingDescription;
+
+
         [ObservableProperty]
-        private string _ratingDescription;
+        private string _ratingDescriptionStrengths;
+        
+
+
+            [ObservableProperty]
+        private string _ratingDescriptionweaknesses;
+        
 
         public IRelayCommand SetFullHistoryCommand { get; }
         public IRelayCommand RefreshCommand { get; }
@@ -192,7 +202,9 @@ namespace MoneyGenerator_v5.ViewModels
                 OverallRating = "Нет данных для оценки";
                 RatingColor = new SolidColorBrush(System.Windows.Media.Colors.Gray);
                 RatingStars = "☆☆☆☆☆";
-                RatingDescription = "Недостаточно данных для оценки";
+                //RatingDescription = "Недостаточно данных для оценки";
+                RatingDescriptionStrengths = "Недостаточно данных для оценки";
+                RatingDescriptionweaknesses = "Недостаточно данных для оценки";
                 return;
             }
 
@@ -380,28 +392,42 @@ namespace MoneyGenerator_v5.ViewModels
             OverallRating = $"{ratingText} ({percent:F0}%)";
             RatingColor = new SolidColorBrush(color);
             RatingStars = stars;
-            RatingDescription = description;
+            //RatingDescription = description;
+            RatingDescriptionStrengths = description;
+            RatingDescriptionweaknesses = description;
 
             // ✅ ДОБАВЛЯЕМ ДЕТАЛЬНЫЙ АНАЛИЗ В ОПИСАНИЕ
-            if (strengths.Any() || weaknesses.Any())
+            if (strengths.Any())
             {
-                var details = new List<string>();
+                var detailsStrengths = new List<string>();
 
-                if (strengths.Any())
                 {
-                    details.Add("✅ Сильные стороны:");
-                    details.AddRange(strengths.Select(s => $"   • {s}"));
+                    detailsStrengths.Add("✅ Сильные стороны:");
+                    detailsStrengths.AddRange(strengths.Select(s => $"   • {s}"));
                 }
+
+                RatingDescriptionStrengths = string.Join("  \n   ", detailsStrengths);
+
+
+               
+            }
+
+            // ✅ ДОБАВЛЯЕМ ДЕТАЛЬНЫЙ АНАЛИЗ В ОПИСАНИЕ
+            if (weaknesses.Any())
+            {
+
+                var detailsweaknesses = new List<string>();
 
                 if (weaknesses.Any())
                 {
-                    if (details.Any()) details.Add("");
-                    details.Add("⚠️ Слабые стороны:");
-                    details.AddRange(weaknesses.Select(w => $"   • {w}"));
+                    if (detailsweaknesses.Any()) detailsweaknesses.Add("");
+                    detailsweaknesses.Add("⚠️ Слабые стороны:");
+                    detailsweaknesses.AddRange(weaknesses.Select(w => $"   • {w}"));
                 }
 
-                RatingDescription = string.Join("\n", details);
+                RatingDescriptionweaknesses = string.Join("  \n   ", detailsweaknesses);
             }
+
         }
 
         private string FormatDuration(TimeSpan duration)

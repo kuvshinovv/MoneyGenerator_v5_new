@@ -347,6 +347,8 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine($"  StopLossATRMultiplier = {maParams.StopLossATRMultiplier}");
             Debug.WriteLine($"  TakeProfitATRMultiplier = {maParams.TakeProfitATRMultiplier}");
             Debug.WriteLine($"  TrailingStopATRMultiplier = {maParams.TrailingStopATRMultiplier}");
+            Debug.WriteLine($"[AddMaOptimizationParameters] Текущий FilterSmaPeriod из стратегии: {maParams.FilterSmaPeriod}");
+            Debug.WriteLine($"[AddMaOptimizationParameters] UseManualFilterSma: {maParams.UseManualFilterSma}");
 
             // ✅ Парсим SMA периоды и СОРТИРУЕМ для корректной логики
             var smaPeriods = ParsePeriodsSorted(maParams.SmaPeriods);
@@ -386,7 +388,46 @@ namespace MoneyGenerator_v5.ViewModels
             AddParameter("SmaShort", "SMA короткий", smaShort, 5, 100, 5);
             AddParameter("SmaMedium", "SMA средний", smaMedium, 10, 200, 10);
             AddParameter("SmaLong", "SMA длинный", smaLong, 20, 500, 20);
-            AddParameter("FilterSmaPeriod", "Фильтр SMA", smaMedium, 10, 100, 5);
+
+
+            // ============================================================
+            // ✅ ✅ ✅ ВАЖНО: Учитываем режим работы FilterSmaPeriod
+            // ============================================================
+            int filterSmaValue;
+            int filterMin;
+            int filterMax;
+
+            if (maParams.UseManualFilterSma)
+            {
+                // ✅ Ручной режим - используем значение из настроек стратегии
+                filterSmaValue = maParams.FilterSmaPeriod;
+                Debug.WriteLine($"[AddMaOptimizationParameters] Ручной режим FilterSmaPeriod = {filterSmaValue} (из стратегии)");
+
+                // Диапазон для оптимизации вокруг ручного значения
+                filterMin = Math.Max(1, filterSmaValue - 20);
+                filterMax = Math.Min(200, filterSmaValue + 20);
+
+                // Если диапазон слишком мал - расширяем
+                if (filterMax - filterMin < 10)
+                {
+                    filterMin = Math.Max(1, filterSmaValue - 15);
+                    filterMax = Math.Min(200, filterSmaValue + 15);
+                }
+            }
+            else
+            {
+                // ✅ Автоматический режим - вычисляем как средний SMA период
+                filterSmaValue = smaMedium;
+                Debug.WriteLine($"[AddMaOptimizationParameters] Автоматический режим FilterSmaPeriod = {filterSmaValue} (средний SMA)");
+
+                // Диапазон для оптимизации вокруг среднего SMA
+                filterMin = Math.Max(10, filterSmaValue - 30);
+                filterMax = Math.Min(200, filterSmaValue + 30);
+            }
+
+            // ✅ Добавляем FilterSmaPeriod с правильным диапазоном
+            AddParameter("FilterSmaPeriod", "Фильтр SMA", filterSmaValue, filterMin, filterMax, 5);
+            Debug.WriteLine($"[AddMaOptimizationParameters] FilterSmaPeriod: значение={filterSmaValue}, диапазон={filterMin}..{filterMax}, режим={(maParams.UseManualFilterSma ? "РУЧНОЙ" : "АВТО")}");
 
             // EMA параметры
             AddParameter("EmaShort", "EMA короткий", emaShort, 5, 100, 5);
@@ -3305,6 +3346,8 @@ namespace MoneyGenerator_v5.ViewModels
                 Debug.WriteLine($"  TrailingStopATRMultiplier = {maParams.TrailingStopATRMultiplier}");
                 Debug.WriteLine($"  SmaPeriods = {maParams.SmaPeriods}");
                 Debug.WriteLine($"  EmaPeriods = {maParams.EmaPeriods}");
+                Debug.WriteLine($"  FilterSmaPeriod = {maParams.FilterSmaPeriod}");
+                Debug.WriteLine($"  UseManualFilterSma = {maParams.UseManualFilterSma}");
 
                 // ✅ ПАРСИМ ТЕКУЩИЕ ПЕРИОДЫ ИЗ СТРАТЕГИИ
                 var smaPeriods = ParsePeriodsSorted(maParams.SmaPeriods);
@@ -3336,7 +3379,6 @@ namespace MoneyGenerator_v5.ViewModels
                             {
                                 newValue = smaPeriods[0];
                                 param.CurrentValue = newValue;
-                                // ✅ Обновляем диапазон для следующих оптимизаций
                                 param.MinValue = Math.Max(5, newValue - 20);
                                 param.MaxValue = Math.Min(100, newValue + 20);
                                 param.Step = 5;
@@ -3411,18 +3453,42 @@ namespace MoneyGenerator_v5.ViewModels
                             }
                             break;
 
-                        // ✅ FILTER SMA - обновляем на основе среднего SMA периода
+                        // ✅ FILTER SMA - учитываем режим ручного/автоматического управления
                         case "FilterSmaPeriod":
-                            if (smaPeriods.Count >= 2)
+                            // ✅ Берем значение из стратегии
+                            newValue = maParams.FilterSmaPeriod;
+                            param.CurrentValue = newValue;
+
+                            // ✅ Устанавливаем диапазон в зависимости от режима
+                            int filterMin;
+                            int filterMax;
+
+                            if (maParams.UseManualFilterSma)
                             {
-                                newValue = smaPeriods[1]; // используем средний SMA
-                                param.CurrentValue = newValue;
-                                param.MinValue = Math.Max(10, newValue - 30);
-                                param.MaxValue = Math.Min(200, newValue + 30);
-                                param.Step = 5;
-                                found = true;
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                                // Ручной режим - узкий диапазон вокруг значения
+                                filterMin = Math.Max(1, (int)newValue - 20);
+                                filterMax = Math.Min(200, (int)newValue + 20);
+
+                                if (filterMax - filterMin < 10)
+                                {
+                                    filterMin = Math.Max(1, (int)newValue - 15);
+                                    filterMax = Math.Min(200, (int)newValue + 15);
+                                }
+                                Debug.WriteLine($"[RefreshOptimizationParameters] Фильтр SMA: РУЧНОЙ режим, значение={newValue}");
                             }
+                            else
+                            {
+                                // Автоматический режим - широкий диапазон
+                                filterMin = 10;
+                                filterMax = 200;
+                                Debug.WriteLine($"[RefreshOptimizationParameters] Фильтр SMA: АВТОМАТИЧЕСКИЙ режим, значение={newValue}");
+                            }
+
+                            param.MinValue = filterMin;
+                            param.MaxValue = filterMax;
+                            param.Step = 5;
+                            found = true;
+                            Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
                             break;
 
                         // ✅ ATR ПАРАМЕТРЫ - обновляем CurrentValue

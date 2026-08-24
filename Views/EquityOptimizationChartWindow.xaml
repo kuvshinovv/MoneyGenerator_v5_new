@@ -36,22 +36,22 @@
         </Grid.RowDefinitions>
 
         <!-- Заголовок с параметрами -->
-        <Border Grid.Row="0" Background="White" Padding="10" Margin="0,0,0,10" CornerRadius="5">
+        <Border Grid.Row="0" Background="White" Padding="0" Margin="0,0,0,0" CornerRadius="5">
             <StackPanel>
-                <TextBlock Text="📈 График эквити" FontSize="18" FontWeight="Bold" Foreground="#2C3E50"/>
+                <TextBlock Text="📈 Параметры и результаты оптимизации" FontSize="18" FontWeight="Bold" Foreground="#2C3E50"/>
                 <TextBlock Text="{Binding ParametersSummary}" FontSize="11" Foreground="#7F8C8D" Margin="0,5,0,0" TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
 
         <!-- ✅ ИНФОРМАЦИОННАЯ ПАНЕЛЬ С ОЦЕНКОЙ -->
-        <Border Grid.Row="1" Background="White" Padding="10" Margin="0,0,0,10" CornerRadius="5">
+        <Border Grid.Row="1" Background="White"  Margin="0,0,0,10" CornerRadius="5">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
@@ -62,8 +62,8 @@
                 <!-- Период оптимизации -->
                 <Border Grid.Row="0" Grid.Column="0" Background="#FFF0F8FF" CornerRadius="4" Padding="5" Margin="2">
                     <StackPanel>
-                        <TextBlock Text="📅 Период" FontWeight="Bold" FontSize="11" Foreground="#2980B9"/>
-                        <TextBlock Text="{Binding OptimizationPeriod}" FontSize="10" TextWrapping="Wrap"/>
+                        <TextBlock Text="📅 Глубина оптимизации (период)" FontWeight="Bold" FontSize="11" Foreground="#2980B9"/>
+                        <TextBlock Text="{Binding OptimizationPeriodsFromTill}" FontSize="10" TextWrapping="Wrap"  Padding="10"/>
                     </StackPanel>
                 </Border>
 
@@ -71,7 +71,7 @@
                 <Border Grid.Row="0" Grid.Column="1" Background="#FFF0FFF0" CornerRadius="4" Padding="5" Margin="2">
                     <StackPanel>
                         <TextBlock Text="📊 Сделки" FontWeight="Bold" FontSize="11" Foreground="#27AE60"/>
-                        <TextBlock Text="{Binding TotalTradesInfo}" FontSize="10" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding TotalTradesInfo}" FontSize="10" TextWrapping="Wrap" Padding="10"/>
                     </StackPanel>
                 </Border>
 
@@ -79,7 +79,7 @@
                 <Border Grid.Row="0" Grid.Column="2" Background="#FFFFFFF0" CornerRadius="4" Padding="5" Margin="2">
                     <StackPanel>
                         <TextBlock Text="🎯 Win Rate" FontWeight="Bold" FontSize="11" Foreground="#F39C12"/>
-                        <TextBlock Text="{Binding WinRateInfo}" FontSize="10"/>
+                        <TextBlock Text="{Binding WinRateInfo}" FontSize="10" Padding="10"/>
                     </StackPanel>
                 </Border>
 
@@ -87,7 +87,7 @@
                 <Border Grid.Row="0" Grid.Column="3" Background="#FFF5F0FF" CornerRadius="4" Padding="5" Margin="2">
                     <StackPanel>
                         <TextBlock Text="📈 Profit Factor" FontWeight="Bold" FontSize="11" Foreground="#8E44AD"/>
-                        <TextBlock Text="{Binding ProfitFactorInfo}" FontSize="10"/>
+                        <TextBlock Text="{Binding ProfitFactorInfo}" FontSize="10" Padding="10"/>
                     </StackPanel>
                 </Border>
 
@@ -95,7 +95,7 @@
                 <Border Grid.Row="0" Grid.Column="4" Background="#FFFFF5F0" CornerRadius="4" Padding="5" Margin="2">
                     <StackPanel>
                         <TextBlock Text="📉 Sharpe Ratio" FontWeight="Bold" FontSize="11" Foreground="#E67E22"/>
-                        <TextBlock Text="{Binding SharpeRatioInfo}" FontSize="10"/>
+                        <TextBlock Text="{Binding SharpeRatioInfo}" FontSize="10" Padding="10"/>
                     </StackPanel>
                 </Border>
 
@@ -103,16 +103,17 @@
                 <Border Grid.Row="0" Grid.Column="5" Background="#FFFFF0F5" CornerRadius="4" Padding="5" Margin="2">
                     <StackPanel>
                         <TextBlock Text="🔄 Recovery Factor" FontWeight="Bold" FontSize="11" Foreground="#C0392B"/>
-                        <TextBlock Text="{Binding RecoveryFactorInfo}" FontSize="10"/>
+                        <TextBlock Text="{Binding RecoveryFactorInfo}" FontSize="10" Padding="10"/>
                     </StackPanel>
                 </Border>
 
                 <!-- ✅ ОБЩАЯ ОЦЕНКА -->
-                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Background="#FFF8F8F8" CornerRadius="4" Padding="8" Margin="2,5,2,0">
+                <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Background="#FFF8F8F8" CornerRadius="4"  Margin="2,5,2,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
@@ -129,15 +130,17 @@
                         </StackPanel>
 
                         <!-- Описание -->
-                        <TextBlock Grid.Column="2" Text="{Binding RatingDescription}" FontSize="10" 
+                        <TextBlock Grid.Column="2" Text="{Binding RatingDescriptionStrengths}" FontSize="10" 
                                    Foreground="#555555" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="3" Text="{Binding RatingDescriptionweaknesses}" FontSize="10" 
+                                    Foreground="#555555" TextWrapping="Wrap" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
             </Grid>
         </Border>
 
         <!-- Статистика (была в строке 1, теперь строка 2) -->
-        <Border Grid.Row="2" Background="White" Padding="10" Margin="0,0,0,10" CornerRadius="5">
+        <Border Grid.Row="2" Background="White"  Margin="0,0,0,10" CornerRadius="5">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
