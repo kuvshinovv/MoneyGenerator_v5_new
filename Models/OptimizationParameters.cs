@@ -165,10 +165,9 @@ namespace MoneyGenerator_v5.Models
         private decimal _expectancy;
         private DateTime _startDate;
         private DateTime _endDate;
-
         private string _ticker;
-
         private string _timeFrame;
+        private decimal _annualReturn;
 
 
         public string Ticker
@@ -182,10 +181,6 @@ namespace MoneyGenerator_v5.Models
             get => _timeFrame;
             set => SetProperty(ref _timeFrame, value);
         }
-
-
-
-
 
         public int Iteration
         {
@@ -289,6 +284,13 @@ namespace MoneyGenerator_v5.Models
             set => SetProperty(ref _endDate, value);
         }
 
+    
+        public decimal AnnualReturn
+        {
+            get => _annualReturn;
+            set => SetProperty(ref _annualReturn, value);
+        }
+
         // Форматированные строки для отображения
         public string FormattedNetProfit => NetProfit >= 0 ? $"+{NetProfit:F2}" : $"{NetProfit:F2}";
         public string FormattedProfitFactor => ProfitFactor.ToString("F2");
@@ -298,6 +300,8 @@ namespace MoneyGenerator_v5.Models
         public string FormattedTotalTrades => TotalTrades.ToString();
         public string FormattedExpectancy => Expectancy.ToString("F2");
         public string FormattedRecoveryFactor => RecoveryFactor.ToString("F2");
+        public string FormattedAnnualReturn => AnnualReturn != 0 ? $"{AnnualReturn:F2}%" : "0.00%";
+
 
 
 

@@ -147,6 +147,7 @@ namespace MoneyGenerator_v5.Views
             sb.AppendLine($"Ср. проигрыш: {selectedResult.AverageLoss:F2}");
             sb.AppendLine($"Ожидание: {selectedResult.FormattedExpectancy}");
             sb.AppendLine($"Фактор восстановления: {selectedResult.FormattedRecoveryFactor}");
+            sb.AppendLine($"Годовая доходность: {selectedResult.FormattedAnnualReturn}"); // ✅ ДОБАВЛЕНО
             sb.AppendLine("=== Параметры ===");
             foreach (var p in selectedResult.Parameters)
             {

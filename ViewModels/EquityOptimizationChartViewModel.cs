@@ -66,6 +66,9 @@ namespace MoneyGenerator_v5.ViewModels
         private string _profitFactorInfo;
 
         [ObservableProperty]
+        private string _annualReturnInfo;
+
+        [ObservableProperty]
         private string _sharpeRatioInfo;
 
         [ObservableProperty]
@@ -88,7 +91,7 @@ namespace MoneyGenerator_v5.ViewModels
         private string _ratingDescriptionStrengths;
 
         [ObservableProperty]
-        private string _ratingDescriptionweaknesses;
+        private string _ratingDescriptionWeaknesses;
 
 
         // ✅ НОВЫЕ СВОЙСТВА ДЛЯ TOOLTIP
@@ -124,6 +127,9 @@ namespace MoneyGenerator_v5.ViewModels
 
         [ObservableProperty]
         private string _toolTipOverallRating;
+        
+        [ObservableProperty]
+        private string _toolTipAnnualReturn;
 
 
 
@@ -172,6 +178,38 @@ namespace MoneyGenerator_v5.ViewModels
 
             ProfitColor = TotalProfit >= 0 ? new SolidColorBrush(System.Windows.Media.Colors.Green) : new SolidColorBrush(System.Windows.Media.Colors.Red);
             FinalCapitalColor = FinalCapital >= InitialCapital ? new SolidColorBrush(System.Windows.Media.Colors.Green) : new SolidColorBrush(System.Windows.Media.Colors.Red);
+
+            // ✅ ГОДОВАЯ ДОХОДНОСТЬ - отображаем с дополнительной информацией
+            if (_result.AnnualReturn != 0)
+            {
+                // Форматируем с указанием уровня доходности
+                string level;
+                decimal absReturn = Math.Abs(_result.AnnualReturn);
+
+                if (_result.AnnualReturn > 0)
+                {
+                    if (absReturn >= 30)
+                        level = "🔥 Отлично";
+                    else if (absReturn >= 20)
+                        level = "✅ Хорошо";
+                    else if (absReturn >= 10)
+                        level = "📊 Средне";
+                    else if (absReturn >= 5)
+                        level = "📉 Низкая";
+                    else
+                        level = "💤 Минимальная";
+
+                    AnnualReturnInfo = $"{_result.AnnualReturn:F2}% ({level})";
+                }
+                else
+                {
+                    AnnualReturnInfo = $"❌ {_result.AnnualReturn:F2}% (Отрицательная)";
+                }
+            }
+            else
+            {
+                AnnualReturnInfo = "Н/Д";
+            }
 
             // Просадка
             decimal peak = InitialCapital;
@@ -259,6 +297,26 @@ namespace MoneyGenerator_v5.ViewModels
                 "   P&L = Конечный капитал - Начальный капитал\n\n" +
                 "✅ Положительное значение = прибыль\n" +
                 "❌ Отрицательное значение = убыток";
+
+            // ✅ ОБНОВЛЕННЫЙ TOOLTIP ДЛЯ ГОДОВОЙ ДОХОДНОСТИ
+            ToolTipAnnualReturn =
+                "📈 Годовая доходность\n" +
+                "═══════════════════════\n" +
+                $"Годовая доходность: {(_result.AnnualReturn != 0 ? $"{_result.AnnualReturn:F2}%" : "Н/Д")}\n\n" +
+                "📌 Показывает, какой процент прибыли\n" +
+                "стратегия принесла бы за один год.\n\n" +
+                "📊 Шкала оценки:\n" +
+                "   🔥 30%+   = Отличная доходность\n" +
+                "   ✅ 20-30% = Хорошая доходность\n" +
+                "   📊 10-20% = Средняя доходность\n" +
+                "   📉 5-10%  = Низкая доходность\n" +
+                "   💤 0-5%   = Минимальная доходность\n\n" +
+                "📊 Рассчитывается как:\n" +
+                "   Annual Return = ((Конечный капитал / Начальный капитал) ^ (365 / Дни)) - 1\n\n" +
+                $"{(_result.AnnualReturn > 0 ? "✅ Положительная доходность" :
+                   _result.AnnualReturn < 0 ? "❌ Отрицательная доходность" :
+                   "⚠️ Доходность не рассчитана")}";
+
 
             // Максимальная просадка
             ToolTipMaxDrawdown =
@@ -375,9 +433,8 @@ namespace MoneyGenerator_v5.ViewModels
                 OverallRating = "Нет данных для оценки";
                 RatingColor = new SolidColorBrush(System.Windows.Media.Colors.Gray);
                 RatingStars = "☆☆☆☆☆";
-                //RatingDescription = "Недостаточно данных для оценки";
                 RatingDescriptionStrengths = "Недостаточно данных для оценки";
-                RatingDescriptionweaknesses = "Недостаточно данных для оценки";
+                RatingDescriptionWeaknesses = "Недостаточно данных для оценки";
                 return;
             }
 
@@ -387,29 +444,32 @@ namespace MoneyGenerator_v5.ViewModels
             List<string> strengths = new List<string>();
             List<string> weaknesses = new List<string>();
 
-            // 1. Прибыльность (макс. 30 баллов)
-            maxScore += 30;
+
+            // ============================================================
+            // 1. ПРИБЫЛЬНОСТЬ (макс. 25 баллов)
+            // ============================================================
+            maxScore += 25;
             if (_result.NetProfit > 0)
             {
-                if (_result.NetProfit > 10000)
-                {
-                    score += 30;
-                    strengths.Add("Высокая прибыль (>10 000 ₽)");
-                }
-                else if (_result.NetProfit > 5000)
+                if (_result.NetProfit > 20000)
                 {
                     score += 25;
-                    strengths.Add("Хорошая прибыль (>5 000 ₽)");
+                    strengths.Add("Высокая прибыль (>20 000 ₽)");
                 }
-                else if (_result.NetProfit > 1000)
+                else if (_result.NetProfit > 15000)
                 {
                     score += 20;
-                    strengths.Add("Умеренная прибыль (>1 000 ₽)");
+                    strengths.Add("Хорошая прибыль (>15 000 ₽)");
+                }
+                else if (_result.NetProfit > 10000)
+                {
+                    score += 15;
+                    weaknesses.Add("Умеренная прибыль (>10 000 ₽)");
                 }
                 else
                 {
                     score += 10;
-                    strengths.Add("Небольшая прибыль");
+                    weaknesses.Add("Небольшая прибыль");
                 }
             }
             else
@@ -417,49 +477,55 @@ namespace MoneyGenerator_v5.ViewModels
                 weaknesses.Add($"Убыток: {_result.NetProfit:F2} ₽");
             }
 
-            // 2. Win Rate (макс. 20 баллов)
-            maxScore += 20;
+            // ============================================================
+            // 2. WIN RATE (макс. 15 баллов)
+            // ============================================================
+            maxScore += 15;
             if (_result.WinRate >= 70)
             {
-                score += 20;
+                score += 15;
                 strengths.Add($"Отличный Win Rate: {_result.WinRate:F1}%");
             }
             else if (_result.WinRate >= 55)
             {
-                score += 15;
+                score += 12;
                 strengths.Add($"Хороший Win Rate: {_result.WinRate:F1}%");
             }
             else if (_result.WinRate >= 40)
             {
-                score += 10;
+                score += 8;
             }
             else
             {
                 weaknesses.Add($"Низкий Win Rate: {_result.WinRate:F1}%");
             }
 
-            // 3. Profit Factor (макс. 20 баллов)
-            maxScore += 20;
+            // ============================================================
+            // 3. PROFIT FACTOR (макс. 15 баллов)
+            // ============================================================
+            maxScore += 15;
             if (_result.ProfitFactor >= 2.0m)
             {
-                score += 20;
+                score += 15;
                 strengths.Add($"Отличный Profit Factor: {_result.ProfitFactor:F2}");
             }
             else if (_result.ProfitFactor >= 1.5m)
             {
-                score += 15;
+                score += 12;
                 strengths.Add($"Хороший Profit Factor: {_result.ProfitFactor:F2}");
             }
             else if (_result.ProfitFactor >= 1.2m)
             {
-                score += 10;
+                score += 8;
             }
             else
             {
                 weaknesses.Add($"Низкий Profit Factor: {_result.ProfitFactor:F2}");
             }
 
-            // 4. Max Drawdown (макс. 15 баллов)
+            // ============================================================
+            // 4. MAX DRAWDOWN (макс. 15 баллов)
+            // ============================================================
             maxScore += 15;
             if (_result.MaxDrawdown < 5)
             {
@@ -468,19 +534,21 @@ namespace MoneyGenerator_v5.ViewModels
             }
             else if (_result.MaxDrawdown < 15)
             {
-                score += 10;
+                score += 12;
                 strengths.Add($"Умеренная просадка: {_result.MaxDrawdown:F1}%");
             }
             else if (_result.MaxDrawdown < 30)
             {
-                score += 5;
+                score += 8;
             }
             else
             {
                 weaknesses.Add($"Высокая просадка: {_result.MaxDrawdown:F1}%");
             }
 
-            // 5. Sharpe Ratio (макс. 10 баллов)
+            // ============================================================
+            // 5. SHARPE RATIO (макс. 10 баллов)
+            // ============================================================
             maxScore += 10;
             if (_result.SharpeRatio >= 1.0m)
             {
@@ -489,21 +557,73 @@ namespace MoneyGenerator_v5.ViewModels
             }
             else if (_result.SharpeRatio >= 0.5m)
             {
-                score += 6;
+                score += 7;
                 strengths.Add($"Хороший Sharpe: {_result.SharpeRatio:F2}");
             }
             else if (_result.SharpeRatio > 0)
             {
-                score += 3;
+                score += 4;
             }
             else
             {
                 weaknesses.Add($"Отрицательный Sharpe: {_result.SharpeRatio:F2}");
             }
 
-            // 6. Количество сделок (макс. 5 баллов)
+            // ============================================================
+            // 6. ✅ ГОДОВАЯ ДОХОДНОСТЬ (макс. 15 баллов) - НОВЫЙ КРИТЕРИЙ!
+            // ============================================================
+            maxScore += 15;
+
+            // Проверяем, что AnnualReturn доступен и не равен 0
+            if (_result.AnnualReturn != 0)
+            {
+                decimal annualReturn = Math.Abs(_result.AnnualReturn); // Берем абсолютное значение для оценки
+
+                if (_result.AnnualReturn > 0) // Только положительная доходность
+                {
+                    if (annualReturn >= 30)
+                    {
+                        score += 15;
+                        strengths.Add($"Отличная годовая доходность: {_result.AnnualReturn:F2}%");
+                    }
+                    else if (annualReturn >= 20)
+                    {
+                        score += 12;
+                        strengths.Add($"Хорошая годовая доходность: {_result.AnnualReturn:F2}%");
+                    }
+                    else if (annualReturn >= 10)
+                    {
+                        score += 9;
+                        weaknesses.Add($"Средняя годовая доходность: {_result.AnnualReturn:F2}%");
+                    }
+                    else if (annualReturn >= 5)
+                    {
+                        score += 6;
+                        weaknesses.Add($"Низкая годовая доходность: {_result.AnnualReturn:F2}%");
+                    }
+                    else
+                    {
+                        score += 3;
+                        weaknesses.Add($"Минимальная годовая доходность: {_result.AnnualReturn:F2}%");
+                    }
+                }
+                else
+                {
+                    // Отрицательная годовая доходность
+                    weaknesses.Add($"Отрицательная годовая доходность: {_result.AnnualReturn:F2}%");
+                }
+            }
+            else
+            {
+                weaknesses.Add("Годовая доходность не рассчитана");
+            }
+
+
+            // ============================================================
+            // 7. КОЛИЧЕСТВО СДЕЛОК (макс. 5 баллов)
+            // ============================================================
             maxScore += 5;
-            if (_result.TotalTrades >= 30)
+            if (_result.TotalTrades >= 180)
             {
                 score += 5;
                 strengths.Add($"Достаточная статистика: {_result.TotalTrades} сделок");
@@ -517,10 +637,14 @@ namespace MoneyGenerator_v5.ViewModels
                 weaknesses.Add($"Мало сделок: {_result.TotalTrades}");
             }
 
-            // ✅ ВЫЧИСЛЯЕМ ПРОЦЕНТ ОЦЕНКИ
+            // ============================================================
+            // ВЫЧИСЛЯЕМ ПРОЦЕНТ ОЦЕНКИ
+            // ============================================================
             double percent = maxScore > 0 ? (double)score / maxScore * 100 : 0;
 
-            // ✅ ОПРЕДЕЛЯЕМ РЕЙТИНГ (используем System.Windows.Media.Colors)
+            // ============================================================
+            // ОПРЕДЕЛЯЕМ РЕЙТИНГ
+            // ============================================================
             string ratingText;
             System.Windows.Media.Color color;
             string stars;
@@ -565,40 +689,33 @@ namespace MoneyGenerator_v5.ViewModels
             OverallRating = $"{ratingText} ({percent:F0}%)";
             RatingColor = new SolidColorBrush(color);
             RatingStars = stars;
-            //RatingDescription = description;
             RatingDescriptionStrengths = description;
-            RatingDescriptionweaknesses = description;
+            RatingDescriptionWeaknesses = description;
 
-            // ✅ ДОБАВЛЯЕМ ДЕТАЛЬНЫЙ АНАЛИЗ В ОПИСАНИЕ
+            // ============================================================
+            // ФОРМИРУЕМ ДЕТАЛЬНЫЙ АНАЛИЗ С СИЛЬНЫМИ СТОРОНАМИ
+            // ============================================================
             if (strengths.Any())
             {
-                var detailsStrengths = new List<string>();
-
+                var detailsStrengths = new List<string>
                 {
-                    detailsStrengths.Add("✅ Сильные стороны:");
-                    detailsStrengths.AddRange(strengths.Select(s => $"   • {s}"));
-                }
-
-                RatingDescriptionStrengths = string.Join("  \n   ", detailsStrengths);
-
-
-               
+                    "✅ Сильные стороны:"
+                };
+                detailsStrengths.AddRange(strengths.Select(s => $"   • {s}"));
+                RatingDescriptionStrengths = string.Join("\n", detailsStrengths);
             }
 
-            // ✅ ДОБАВЛЯЕМ ДЕТАЛЬНЫЙ АНАЛИЗ В ОПИСАНИЕ
+            // ============================================================
+            // ФОРМИРУЕМ ДЕТАЛЬНЫЙ АНАЛИЗ СО СЛАБЫМИ СТОРОНАМИ
+            // ============================================================
             if (weaknesses.Any())
             {
-
-                var detailsweaknesses = new List<string>();
-
-                if (weaknesses.Any())
+                var detailsWeaknesses = new List<string>
                 {
-                    if (detailsweaknesses.Any()) detailsweaknesses.Add("");
-                    detailsweaknesses.Add("⚠️ Слабые стороны:");
-                    detailsweaknesses.AddRange(weaknesses.Select(w => $"   • {w}"));
-                }
-
-                RatingDescriptionweaknesses = string.Join("  \n   ", detailsweaknesses);
+                    "⚠️ Слабые стороны:"
+                };
+                        detailsWeaknesses.AddRange(weaknesses.Select(w => $"   • {w}"));
+                RatingDescriptionWeaknesses = string.Join("\n", detailsWeaknesses);
             }
 
         }

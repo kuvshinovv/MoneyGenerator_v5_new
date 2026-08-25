@@ -139,6 +139,7 @@ namespace MoneyGenerator_v5.Services
                 result.EndDate = _candles.LastOrDefault()?.Time ?? DateTime.Now;
                 result.EquityHistory = simulationResult.EquityHistory ?? new List<decimal>();
                 result.EquityDates = simulationResult.EquityDates ?? new List<DateTime>();
+                result.AnnualReturn = simulationResult.AnnualReturn;
 
                 _logger?.LogInformation($"[MaBacktestEngine] ✅ Результат: P&L={result.NetProfit:F2}, Trades={result.TotalTrades}, WinRate={result.WinRate:F1}%");
 
@@ -323,6 +324,8 @@ namespace MoneyGenerator_v5.Services
         /// </summary>
         private async Task<SimulationResult> SimulateTradingAsync(MaStrategyParams parameters, CancellationToken cancellationToken)
         {
+            _logger?.LogInformation($"[MaBacktestEngine] SimulateTradingAsync: _candles = {_candles?.Count ?? 0} свечей");
+
             var result = new SimulationResult();
             var stopwatch = Stopwatch.StartNew();
 
@@ -873,6 +876,31 @@ namespace MoneyGenerator_v5.Services
                 result.EquityHistory = equityHistory;
                 result.EquityDates = equityDates;
 
+
+
+                // ✅ ✅ ✅ РАСЧЕТ ГОДОВОЙ ДОХОДНОСТИ
+                if (_candles != null && _candles.Count > 0 && INITIAL_BALANCE > 0)
+                {
+                   // Debug.WriteLine($"[MaBacktestEngine] --------------------   ");
+
+                    var firstCandle = _candles.FirstOrDefault();
+                    var lastCandle = _candles.LastOrDefault();
+
+                    if (firstCandle != null && lastCandle != null)
+                    {
+                        double days = (lastCandle.Time - firstCandle.Time).TotalDays;
+                        if (days < 1) days = 1;
+
+                        double totalReturn = (double)(balance / INITIAL_BALANCE);
+                        double annualReturn = (Math.Pow(totalReturn, 365.0 / days) - 1) * 100;
+
+                        result.AnnualReturn = (decimal)annualReturn;
+
+                    }
+                }
+
+
+
                 // РАСЧЕТ КОЭФФИЦИЕНТА ШАРПА
                 if (trades.Count > 1)
                 {
@@ -1016,6 +1044,9 @@ namespace MoneyGenerator_v5.Services
             public decimal Expectancy { get; set; }
             public List<decimal> EquityHistory { get; set; } = new List<decimal>();
             public List<DateTime> EquityDates { get; set; } = new List<DateTime>();
+
+            public decimal AnnualReturn { get; set; }
+            public string FormattedAnnualReturn => AnnualReturn != 0 ? $"{AnnualReturn:F2}%" : "0.00%";
         }
     }
 }

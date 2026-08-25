@@ -3,11 +3,17 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+        xmlns:converters="clr-namespace:MoneyGenerator_v5.Common"
         Title="График эквити оптимизации" Height="700" Width="1000"
         WindowStartupLocation="CenterOwner"
         Background="#F5F5F5">
 
     <Window.Resources>
+
+        <converters:ProfitLossColorConverter x:Key="ProfitLossColorConverter"/>
+
+
+
         <Style TargetType="TextBlock" x:Key="StatLabelStyle">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="#666666"/>
@@ -84,6 +90,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- Период оптимизации -->
@@ -122,8 +129,17 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Sharpe Ratio -->
+                <!-- ✅ ГОДОВАЯ ДОХОДНОСТЬ -->
                 <Border Grid.Row="0" Grid.Column="4" Style="{StaticResource InfoBorderStyle}" 
+                         Background="#FFF0FFFF" ToolTip="{Binding ToolTipAnnualReturn}">
+                    <StackPanel>
+                        <TextBlock Text="📈 Годовая доходность" FontWeight="Bold" FontSize="11" Foreground="#009688"/>
+                        <TextBlock Text="{Binding AnnualReturnInfo}" Style="{StaticResource ToolTipTextBlockStyle}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Sharpe Ratio -->
+                <Border Grid.Row="0" Grid.Column="5" Style="{StaticResource InfoBorderStyle}" 
                         Background="#FFFFF5F0" ToolTip="{Binding ToolTipSharpeRatio}">
                     <StackPanel>
                         <TextBlock Text="📉 Sharpe Ratio" FontWeight="Bold" FontSize="11" Foreground="#E67E22"/>
@@ -132,7 +148,7 @@
                 </Border>
 
                 <!-- Recovery Factor -->
-                <Border Grid.Row="0" Grid.Column="5" Style="{StaticResource InfoBorderStyle}" 
+                <Border Grid.Row="0" Grid.Column="6" Style="{StaticResource InfoBorderStyle}" 
                         Background="#FFFFF0F5" ToolTip="{Binding ToolTipRecoveryFactor}">
                     <StackPanel>
                         <TextBlock Text="🔄 Recovery Factor" FontWeight="Bold" FontSize="11" Foreground="#C0392B"/>
@@ -191,6 +207,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- Начальный капитал -->
@@ -221,8 +238,16 @@
                                Foreground="#E74C3C" ToolTip="{Binding ToolTipMaxDrawdown}"/>
                 </StackPanel>
 
-                <!-- Период -->
+                <!-- ✅ ГОДОВАЯ ДОХОДНОСТЬ -->
                 <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Style="{StaticResource StatLabelStyle}" Text="Годовая доходность:"/>
+                    <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding AnnualReturnInfo}" 
+               Foreground="{Binding TotalProfit, Converter={StaticResource ProfitLossColorConverter}}"
+               ToolTip="{Binding ToolTipAnnualReturn}"/>
+                </StackPanel>
+                
+                <!-- Период -->
+                <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock Style="{StaticResource StatLabelStyle}" Text="Период:"/>
                     <TextBlock Style="{StaticResource StatValueStyle}" Text="{Binding TotalDuration}" 
                                Foreground="#7F8C8D" ToolTip="Длительность торгового периода (от первой до последней сделки)"/>

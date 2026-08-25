@@ -289,6 +289,28 @@
                     </DataGridTextColumn.HeaderStyle>
                 </DataGridTextColumn>
 
+                <!-- ✅ ГОДОВАЯ ДОХОДНОСТЬ -->
+                <DataGridTextColumn Header="Годовая доходность" Width="100" SortMemberPath="AnnualReturn">
+                    <DataGridTextColumn.Binding>
+                        <MultiBinding StringFormat="{}{0}{1}">
+                            <Binding Path="AnnualReturn" Converter="{StaticResource ProfitLossSignConverter}"/>
+                            <Binding Path="FormattedAnnualReturn"/>
+                        </MultiBinding>
+                    </DataGridTextColumn.Binding>
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Годовая доходность в процентах. Рассчитывается как: ((Конечный капитал / Начальный капитал) ^ (365 / Дни)) - 1 * 100%"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                    <DataGridTextColumn.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="Foreground" Value="{Binding AnnualReturn, Converter={StaticResource ProfitLossColorConverter}}"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                        </Style>
+                    </DataGridTextColumn.CellStyle>
+                </DataGridTextColumn>
+
+
                 <!-- Коэф. Шарпа -->
                 <DataGridTextColumn Header="Коэф. Шарпа" Binding="{Binding FormattedSharpeRatio}" Width="85" SortMemberPath="SharpeRatio">
                     <DataGridTextColumn.HeaderStyle>
