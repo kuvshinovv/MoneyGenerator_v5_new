@@ -35,7 +35,7 @@ namespace MoneyGenerator_v5.ViewModels
         private CancellationTokenSource _cancellationTokenSource;
         private bool _isOptimizing;
         private readonly object _resultLock = new object();
-        private readonly string _strategyType;
+        //private readonly string _strategyType;
         private readonly Dictionary<string, decimal> _originalParameters;
 
         // ✅ КЭШ ДАННЫХ - загружается один раз
@@ -51,7 +51,8 @@ namespace MoneyGenerator_v5.ViewModels
         #endregion
 
         #region Observable Properties
-
+        [ObservableProperty]
+        private string _strategyType;
         [ObservableProperty]
         private string _instrumentInfo;
 
@@ -168,7 +169,7 @@ namespace MoneyGenerator_v5.ViewModels
 
             //_results[0].StrategyType = _strategyType;
 
-            SelectedResult.StrategyType = _strategyType;
+            //SelectedResult.StrategyType = _strategyType;
 
             // Инициализация периодов
             AvailablePeriods.Add("30 дней");
@@ -1913,7 +1914,15 @@ namespace MoneyGenerator_v5.ViewModels
             OnPropertyChanged(nameof(CanStopOptimizationCommand));
             OnPropertyChanged(nameof(CanApplyParametersCommand));
 
-           
+            if (SelectedResult != null)
+            {
+                SelectedResult.StrategyType = StrategyType;
+            }
+            
+
+            //Debug.WriteLine($"[RefreshCommands] ========== _results[0].StrategyType ==========  {_results[0].StrategyType}");
+
+
 
             Debug.WriteLine("[RefreshCommands] ========== КОНЕЦ ==========");
         }
@@ -3028,7 +3037,7 @@ namespace MoneyGenerator_v5.ViewModels
 
 
             BestResultSummary = $"{_instrumentInfo}  Лучший: P&L={result.NetProfit:F2}, Фактор={result.ProfitFactor:F2}, " +
-                               $"Сделок={result.TotalTrades}, Параметры: {paramSummary}";
+                               $"Сделок={result.TotalTrades} \nПараметры: {paramSummary}";
             Debug.WriteLine($"[UpdateBestResultSummary] {BestResultSummary}");
             Debug.WriteLine("[UpdateBestResultSummary] КОНЕЦ");
         }
