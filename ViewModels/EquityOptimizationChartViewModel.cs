@@ -18,6 +18,7 @@ namespace MoneyGenerator_v5.ViewModels
     {
         private string _tickerName;
         private string _timeFrame;
+        private string _strategyType;
         private DateTime _currentData;
 
         private readonly OptimizationResult _result;
@@ -146,6 +147,7 @@ namespace MoneyGenerator_v5.ViewModels
             _tickerName = result.Ticker;
             _timeFrame = result.TimeFrame;
             _currentData = result.EndDate;
+            _strategyType = result.StrategyType;
 
             SetFullHistoryCommand = new RelayCommand(SetFullHistory);
             RefreshCommand = new RelayCommand(Refresh);
@@ -170,6 +172,12 @@ namespace MoneyGenerator_v5.ViewModels
 
             // Параметры
             ParametersSummary = string.Join(" | ", _result.Parameters.Select(p => $"{p.Key}={p.Value:F2}"));
+
+            if (_result.StrategyType != null)
+            {
+                Debug.WriteLine($"--------------!!!!!!!-----------------------------------{_result.StrategyType.ToString()}");
+            }
+           
 
             // Капитал
             InitialCapital = _result.EquityHistory.FirstOrDefault();
@@ -540,6 +548,7 @@ namespace MoneyGenerator_v5.ViewModels
             else if (_result.MaxDrawdown < 30)
             {
                 score += 8;
+                weaknesses.Add($"Умеренно высокая просадка: {_result.MaxDrawdown:F1}%");
             }
             else
             {
@@ -631,6 +640,7 @@ namespace MoneyGenerator_v5.ViewModels
             else if (_result.TotalTrades >= 10)
             {
                 score += 3;
+                weaknesses.Add($"Мало сделок, не достаточная статистика: {_result.TotalTrades}");
             }
             else
             {
@@ -824,7 +834,7 @@ namespace MoneyGenerator_v5.ViewModels
                 }
 
                 // Настройки графика
-                _plot.Plot.Title($"График эквити ({_tickerName}, {_timeFrame}) - P&L: {TotalProfit:F2} ₽     {_currentData}      ");
+                _plot.Plot.Title($"График эквити ({_tickerName}, {_timeFrame}, стратегия: {_strategyType}) - P&L: {TotalProfit:F2} ₽     {_currentData}      ");
 
                 // Автомасштабирование
                 _plot.Plot.Axes.AutoScale();

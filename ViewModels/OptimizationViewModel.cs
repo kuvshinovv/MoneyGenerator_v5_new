@@ -166,6 +166,10 @@ namespace MoneyGenerator_v5.ViewModels
 
             Debug.WriteLine($"[OptimizationViewModel] Инициализация для стратегии: {_strategyType}");
 
+            //_results[0].StrategyType = _strategyType;
+
+            SelectedResult.StrategyType = _strategyType;
+
             // Инициализация периодов
             AvailablePeriods.Add("30 дней");
             AvailablePeriods.Add("90 дней");
@@ -327,6 +331,8 @@ namespace MoneyGenerator_v5.ViewModels
         {
             Debug.WriteLine("[AddMaOptimizationParameters] НАЧАЛО");
 
+            
+
             var strategy = _strategyViewModel.MaStrategy;
             if (strategy == null)
             {
@@ -334,12 +340,18 @@ namespace MoneyGenerator_v5.ViewModels
                 return;
             }
 
+
+
+
             var maParams = strategy.Parameters;
             if (maParams == null)
             {
                 Debug.WriteLine("[AddMaOptimizationParameters] maParams is NULL!");
                 return;
             }
+
+
+
 
             // ✅ Выводим текущие значения из стратегии
             Debug.WriteLine($"[AddMaOptimizationParameters] Текущий PositionSizePercent из стратегии: {maParams.PositionSizePercent}%");
@@ -447,6 +459,10 @@ namespace MoneyGenerator_v5.ViewModels
 
             AddParameter("TrailingStopATRMultiplier", "Трейлинг-стоп (ATR множитель)",
                 maParams.TrailingStopATRMultiplier, 0.5m, 4.0m, 0.25m);
+
+
+           
+
 
             Debug.WriteLine("[AddMaOptimizationParameters] КОНЕЦ");
         }
@@ -1897,6 +1913,8 @@ namespace MoneyGenerator_v5.ViewModels
             OnPropertyChanged(nameof(CanStopOptimizationCommand));
             OnPropertyChanged(nameof(CanApplyParametersCommand));
 
+           
+
             Debug.WriteLine("[RefreshCommands] ========== КОНЕЦ ==========");
         }
 
@@ -2156,252 +2174,7 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine("[StartOptimizationAsync] ========== КОНЕЦ ==========");
         }
 
-        /*private async Task RunOptimizationAsync(List<OptimizationParameter> selectedParams, CancellationToken cancellationToken)
-        {
-            Debug.WriteLine("[RunOptimizationAsync] ========== НАЧАЛО ==========");
-
-            try
-            {
-                // ✅ ПОЛУЧАЕМ ВСЕ ПАРАМЕТРЫ (включая НЕвыбранные) с их текущими значениями
-                var allParams = Parameters.ToDictionary(p => p.Name, p => p.CurrentValue);
-
-                Debug.WriteLine($"[RunOptimizationAsync] Все параметры (текущие значения):");
-                foreach (var kvp in allParams)
-                {
-                    Debug.WriteLine($"  {kvp.Key} = {kvp.Value}");
-                }
-
-                Debug.WriteLine($"[RunOptimizationAsync] Выбрано для оптимизации: {selectedParams.Count} параметров");
-                foreach (var p in selectedParams)
-                {
-                    Debug.WriteLine($"  {p.Name} (диапазон: {p.MinValue}..{p.MaxValue}, шаг: {p.Step})");
-                }
-
-                // ✅ ГЕНЕРИРУЕМ ВСЕ КОМБИНАЦИИ (БЕЗ ФИЛЬТРАЦИИ!)
-                var allCombinations = GenerateCombinations(selectedParams);
-                int total = allCombinations.Count;
-
-                Debug.WriteLine($"[RunOptimizationAsync] Сгенерировано ВСЕГО комбинаций: {total}");
-
-                // ✅ КОРРЕКТИРУЕМ TotalCombinations до ФАКТИЧЕСКОГО значения (ВСЕ комбинации)
-                if (TotalCombinations != total)
-                {
-                    Debug.WriteLine($"[RunOptimizationAsync] ⚠️ Корректировка TotalCombinations: {TotalCombinations} -> {total}");
-                    TotalCombinations = total;
-                    ProgressMaximum = total;
-                }
-
-                // ✅ СРАЗУ ПОКАЗЫВАЕМ ПРОГРЕСС-БАР
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    IsProgressVisible = true;
-                    ProgressValue = 0;
-                    ProgressMaximum = total;
-                    ProgressText = $"Обработано: 0/{total} комбинаций";
-                    OptimizationStatus = $"Выполняется оптимизация... 0/{total}";
-                });
-
-                Debug.WriteLine($"[RunOptimizationAsync] _backtestEngine={_backtestEngine != null}");
-
-                int processed = 0;              // Обработано комбинаций (включая невалидные)
-                int validResultsCount = 0;      // Валидных результатов
-                int invalidCount = 0;           // Невалидных комбинаций
-                OptimizationResult bestResult = null;
-
-                DateTime startTime = DateTime.Now;
-                double averageSpeed = 0;
-                int speedSamples = 0;
-
-                // ============================================================
-                // ОСНОВНОЙ ЦИКЛ - ПЕРЕБИРАЕМ ВСЕ КОМБИНАЦИИ (включая невалидные)
-                // ============================================================
-                foreach (var paramSet in allCombinations)
-                {
-                    // Проверка отмены
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        Debug.WriteLine("[RunOptimizationAsync] ОСТАНОВКА по запросу пользователя");
-                        break;
-                    }
-
-                    try
-                    {
-                        // ✅ УВЕЛИЧИВАЕМ СЧЕТЧИК НА КАЖДОЙ ИТЕРАЦИИ (вне зависимости от валидности)
-                        processed++;
-
-                        // Формируем полный набор параметров
-                        var fullParamSet = new Dictionary<string, decimal>(allParams);
-                        foreach (var kvp in paramSet)
-                        {
-                            fullParamSet[kvp.Key] = kvp.Value;
-                        }
-
-                        // Отладочный вывод для первых 5 комбинаций
-                        if (processed <= 5)
-                        {
-                            Debug.WriteLine($"[RunOptimizationAsync] Комбинация {processed}: " +
-                                $"{string.Join(", ", fullParamSet.Select(p => $"{p.Key}={p.Value}"))}");
-                        }
-
-                        // ✅ Проверяем валидность комбинации ПЕРЕД бэктестом
-                        bool isValidCombination = IsValidParameterCombination(fullParamSet);
-
-                        OptimizationResult result = null;
-
-                        if (isValidCombination)
-                        {
-                            // Только валидные комбинации отправляем в бэктест
-                            result = await _backtestEngine.RunBacktestAsync(fullParamSet, cancellationToken);
-
-                            if (result != null && result.TotalTrades > 0 && IsValidOptimizationResult(result))
-                            {
-                                // ✅ ВАЛИДНЫЙ РЕЗУЛЬТАТ - добавляем в коллекцию
-                                result.Iteration = ++validResultsCount;
-
-                                lock (_resultLock)
-                                {
-                                    Application.Current.Dispatcher.Invoke(() =>
-                                    {
-                                        Results.Add(result);
-                                    });
-
-                                    // Проверяем, не стал ли этот результат лучшим
-                                    if (bestResult == null || result.NetProfit > bestResult.NetProfit)
-                                    {
-                                        bestResult = result;
-                                        Debug.WriteLine($"[RunOptimizationAsync] 🏆 НОВЫЙ ЛУЧШИЙ РЕЗУЛЬТАТ: NetProfit={result.NetProfit:F2}, Trades={result.TotalTrades}");
-                                        UpdateBestResultSummary(bestResult);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                // Результат невалидный (нет сделок или слишком большой убыток)
-                                invalidCount++;
-                                Debug.WriteLine($"[RunOptimizationAsync] ⚠️ Невалидный результат: Trades={result?.TotalTrades ?? 0}, NetProfit={result?.NetProfit ?? 0}");
-                            }
-                        }
-                        else
-                        {
-                            // Комбинация не прошла валидацию (неправильные параметры)
-                            invalidCount++;
-                            Debug.WriteLine($"[RunOptimizationAsync] ⚠️ Невалидная комбинация параметров: {processed}");
-                        }
-
-                        // ============================================================
-                        // ОБНОВЛЕНИЕ ПРОГРЕССА (по ОБРАБОТАННЫМ комбинациям)
-                        // ============================================================
-                        CompletedCombinations = processed;
-
-                        // Обновляем прогресс каждые 50 комбинаций или последнюю
-                        if (processed % 50 == 0 || processed == total)
-                        {
-                            double progressPercent = (double)processed / total * 100;
-                            TimeSpan elapsed = DateTime.Now - startTime;
-
-                            // Расчет скорости
-                            if (processed > 5)
-                            {
-                                double speed = processed / elapsed.TotalSeconds;
-                                if (speedSamples == 0)
-                                    averageSpeed = speed;
-                                else
-                                    averageSpeed = averageSpeed * 0.7 + speed * 0.3;
-                                speedSamples++;
-                            }
-
-                            // Расчет оставшегося времени
-                            string remainingTimeText = "вычисляется...";
-                            if (averageSpeed > 0 && processed > 0)
-                            {
-                                int remainingCombinations = total - processed;
-                                double remainingSeconds = remainingCombinations / averageSpeed;
-                                if (remainingSeconds > 0)
-                                    remainingTimeText = FormatTimeSpan(TimeSpan.FromSeconds(remainingSeconds));
-                            }
-
-                            string elapsedTimeText = FormatTimeSpan(elapsed);
-                            string progressMessage = $"Обработано: ({progressPercent:F1}%) {processed}/{total} комбинаций";
-                            string timeMessage = $"⏱ Затрачено: {elapsedTimeText}, осталось: {remainingTimeText}";
-
-                            await Application.Current.Dispatcher.InvokeAsync(() =>
-                            {
-                                ProgressValue = processed;
-                                ProgressText = progressMessage;
-                                LoadingStatus = timeMessage;
-
-                                OptimizationStatus = bestResult != null
-                                    ? $"Лучший результат: {bestResult.NetProfit:F2} руб. | {timeMessage}"
-                                    : $"Выполняется... | {timeMessage}";
-                            });
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        Debug.WriteLine("[RunOptimizationAsync] Операция отменена");
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[RunOptimizationAsync] Ошибка в комбинации {processed}: {ex.Message}");
-                        Debug.WriteLine($"[RunOptimizationAsync] StackTrace: {ex.StackTrace}");
-                        invalidCount++;
-                    }
-                }
-
-                // ============================================================
-                // ФИНАЛЬНОЕ СООБЩЕНИЕ
-                // ============================================================
-                TimeSpan totalElapsed = DateTime.Now - startTime;
-                string totalTimeText = FormatTimeSpan(totalElapsed);
-
-                Debug.WriteLine($"[RunOptimizationAsync] ЗАВЕРШЕНО. Обработано: {processed} комбинаций");
-                Debug.WriteLine($"[RunOptimizationAsync] Валидных результатов: {validResultsCount}");
-                Debug.WriteLine($"[RunOptimizationAsync] Невалидных: {invalidCount}");
-                Debug.WriteLine($"[RunOptimizationAsync] Затрачено времени: {totalTimeText}");
-
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    IsOptimizationRunning = false;
-                    IsProgressVisible = false;
-
-                    string statusMessage = cancellationToken.IsCancellationRequested
-                        ? $"Оптимизация остановлена. Обработано {processed} комбинаций. " +
-                          $"Найдено {validResultsCount} валидных результатов. " +
-                          $"Невалидных: {invalidCount}. Затрачено: {totalTimeText}"
-                        : $"Оптимизация завершена. Обработано {processed} комбинаций. " +
-                          $"Найдено {validResultsCount} валидных результатов из {total} комбинаций. " +
-                          $"Невалидных: {invalidCount}. Затрачено: {totalTimeText}";
-
-                    OptimizationStatus = statusMessage;
-                    _isOptimizing = false;
-                    RefreshCommands();
-                });
-
-                Debug.WriteLine("[RunOptimizationAsync] ========== КОНЕЦ ==========");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[RunOptimizationAsync] КРИТИЧЕСКАЯ ОШИБКА: {ex.Message}");
-                Debug.WriteLine($"[RunOptimizationAsync] StackTrace: {ex.StackTrace}");
-                _logger?.LogError(ex, "Ошибка выполнения оптимизации");
-
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    OptimizationStatus = $"Ошибка: {ex.Message}";
-                    IsOptimizationRunning = false;
-                    IsProgressVisible = false;
-                    _isOptimizing = false;
-                    RefreshCommands();
-                });
-            }
-            finally
-            {
-                Debug.WriteLine("[RunOptimizationAsync] Освобождение ресурсов _backtestEngine");
-                _backtestEngine?.Dispose();
-                _backtestEngine = null;
-            }
-        }*/
+       
         private async Task RunOptimizationAsync(List<OptimizationParameter> selectedParams, CancellationToken cancellationToken)
         {
             Debug.WriteLine("[RunOptimizationAsync] ========== НАЧАЛО ==========");
@@ -3254,7 +3027,7 @@ namespace MoneyGenerator_v5.ViewModels
 
 
 
-            BestResultSummary = $"Лучший {_instrumentInfo}: P&L={result.NetProfit:F2}, Фактор={result.ProfitFactor:F2}, " +
+            BestResultSummary = $"{_instrumentInfo}  Лучший: P&L={result.NetProfit:F2}, Фактор={result.ProfitFactor:F2}, " +
                                $"Сделок={result.TotalTrades}, Параметры: {paramSummary}";
             Debug.WriteLine($"[UpdateBestResultSummary] {BestResultSummary}");
             Debug.WriteLine("[UpdateBestResultSummary] КОНЕЦ");

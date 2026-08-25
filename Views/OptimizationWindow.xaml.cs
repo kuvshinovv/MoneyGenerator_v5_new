@@ -97,8 +97,9 @@ namespace MoneyGenerator_v5.Views
                 selectedResult.Ticker = ViewModel.InstrumentInfo;
                 selectedResult.TimeFrame = ViewModel.TimeframeInfo;
                 selectedResult.EndDate = ViewModel.PeriodEnd;
+                
 
-                var chartWindow = new EquityOptimizationChartWindow(selectedResult);
+                 var chartWindow = new EquityOptimizationChartWindow(selectedResult);
                 chartWindow.Owner = this;
                 chartWindow.ShowDialog();
             }
@@ -148,6 +149,7 @@ namespace MoneyGenerator_v5.Views
             sb.AppendLine($"Ожидание: {selectedResult.FormattedExpectancy}");
             sb.AppendLine($"Фактор восстановления: {selectedResult.FormattedRecoveryFactor}");
             sb.AppendLine($"Годовая доходность: {selectedResult.FormattedAnnualReturn}"); // ✅ ДОБАВЛЕНО
+            sb.AppendLine($"Название стратегии: {selectedResult.StrategyType}"); // ✅ ДОБАВЛЕНО
             sb.AppendLine("=== Параметры ===");
             foreach (var p in selectedResult.Parameters)
             {

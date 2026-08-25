@@ -168,6 +168,7 @@ namespace MoneyGenerator_v5.Models
         private string _ticker;
         private string _timeFrame;
         private decimal _annualReturn;
+        private string _strategyType;
 
 
         public string Ticker
@@ -290,6 +291,14 @@ namespace MoneyGenerator_v5.Models
             get => _annualReturn;
             set => SetProperty(ref _annualReturn, value);
         }
+
+        public string StrategyType
+        {
+            get => _strategyType;
+            set => SetProperty(ref _strategyType, value);
+        }
+
+
 
         // Форматированные строки для отображения
         public string FormattedNetProfit => NetProfit >= 0 ? $"+{NetProfit:F2}" : $"{NetProfit:F2}";
