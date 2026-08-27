@@ -1914,6 +1914,8 @@ namespace MoneyGenerator_v5.ViewModels
             OnPropertyChanged(nameof(CanStopOptimizationCommand));
             OnPropertyChanged(nameof(CanApplyParametersCommand));
 
+
+            // Передаем название стратегии в окно эквити через результаты стратегии
             if (SelectedResult != null)
             {
                 SelectedResult.StrategyType = StrategyType;
