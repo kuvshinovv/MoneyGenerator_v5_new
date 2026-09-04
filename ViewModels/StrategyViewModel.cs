@@ -59,7 +59,7 @@ namespace MoneyGenerator_v5.ViewModels
         private PairsTradingStrategy _pairsStrategy;
         public PairsTradingStrategy PairsStrategy => _pairsStrategy;
 
-
+        private readonly Window _ownerWindow;
 
 
         private CancellationTokenSource _candleUpdateCts;
@@ -233,7 +233,8 @@ namespace MoneyGenerator_v5.ViewModels
             Models.Account selectedAccount,
             IProvirerService providerService,
             ConnectionManager connectionManager,
-            ILogger<StrategyViewModel> logger = null)
+            ILogger<StrategyViewModel> logger = null,
+            Window ownerWindow = null)
         {
             _strategy = strategy;
             _instrument = instrument;
@@ -242,7 +243,7 @@ namespace MoneyGenerator_v5.ViewModels
             _logger = logger;
             _connectionManager = connectionManager;
             _selectedAccount = selectedAccount;
-
+            _ownerWindow = ownerWindow; // ✅ СОХРАНЯЕМ ВЛАДЕЛЬЦА окна
 
             // Инициализация часового пояса
             try
@@ -315,6 +316,8 @@ namespace MoneyGenerator_v5.ViewModels
                     await DisposeAsync();
                 };
             }
+
+            _ownerWindow = ownerWindow;
         }
 
 
@@ -2362,7 +2365,7 @@ namespace MoneyGenerator_v5.ViewModels
                     _providerService,
                     _logger);
 
-                // ✅ Подписываемся на событие применения параметров
+                // Подписываемся на событие применения параметров
                 optimizationVM.ParametersApplied += (paramsDict) =>
                 {
                     Debug.WriteLine($"[StrategyViewModel] Параметры применены: {paramsDict.Count}");
@@ -2372,8 +2375,78 @@ namespace MoneyGenerator_v5.ViewModels
 
                 // Создаем окно
                 var window = new OptimizationWindow(optimizationVM);
-                window.Owner = Application.Current.MainWindow;
-                window.ShowDialog();
+
+                //window.Owner = Application.Current.MainWindow;
+                //window.ShowDialog();
+
+                // ✅ ИЗМЕНЕНИЕ: Устанавливаем владельца - текущее окно стратегии
+                // ✅ ИСПОЛЬЗУЕМ СОХРАНЕННОГО ВЛАДЕЛЬЦА
+                if (_ownerWindow != null)
+                {
+                    window.Owner = _ownerWindow;
+                }
+
+
+
+                // ✅ ИЗМЕНЕНИЕ: Сохраняем ссылку на ViewModel для правильного освобождения
+                var vmRef = optimizationVM;
+
+                // ✅ ИЗМЕНЕНИЕ: Подписываемся на событие закрытия для освобождения ресурсов
+                window.Closed += (s, e) =>
+                {
+                    Debug.WriteLine($"[StrategyViewModel] Окно оптимизации закрыто");
+
+                    // ✅ ПРАВИЛЬНОЕ ОСВОБОЖДЕНИЕ РЕСУРСОВ
+                    try
+                    {
+                        // Отписываемся от событий, чтобы избежать утечек памяти
+                        if (vmRef != null)
+                        {
+                            // Очищаем все ссылки на события
+                            vmRef.ParametersApplied -= null;
+
+                            // Вызываем Dispose
+                            vmRef.Dispose();
+
+                            Debug.WriteLine($"[StrategyViewModel] OptimizationViewModel успешно освобожден");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[StrategyViewModel] Ошибка при освобождении OptimizationViewModel: {ex.Message}");
+                    }
+                };
+
+
+                // Также подписываемся на событие закрытия окна приложения
+                // чтобы освободить ресурсы, если окно оптимизации не было закрыто
+                var mainWindow = Application.Current.MainWindow;
+                if (mainWindow != null)
+                {
+                    void OnMainWindowClosed(object sender, EventArgs args)
+                    {
+                        Debug.WriteLine("[StrategyViewModel] Главное окно закрывается, освобождаем OptimizationViewModel...");
+                        try
+                        {
+                            if (vmRef != null && !vmRef.IsDisposed)
+                            {
+                                vmRef.Dispose();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[StrategyViewModel] Ошибка при освобождении OptimizationViewModel при закрытии главного окна: {ex.Message}");
+                        }
+                        mainWindow.Closed -= OnMainWindowClosed;
+                    }
+                    mainWindow.Closed += OnMainWindowClosed;
+                }
+
+
+                // ✅ ИЗМЕНЕНИЕ: Используем Show() вместо ShowDialog()
+                // Это позволяет окну оптимизации блокировать только владельца (окно стратегии),
+                // но не блокировать другие окна приложения
+                window.Show();
             }
             catch (Exception ex)
             {
@@ -2381,6 +2454,11 @@ namespace MoneyGenerator_v5.ViewModels
                 MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+
+
+
+
         #endregion
 
 
@@ -2436,12 +2514,8 @@ namespace MoneyGenerator_v5.ViewModels
                 {
                     try
                     {
-                        // Проверяем, подписаны ли мы перед отпиской
-                        //if (_isSubscribedToCandles)
-                        //{
-                            await _providerService.UnsubscribeFromCandlesAsync(_instrument.Uid, CurrentTimeframe);
-                            Debug.WriteLine($"DEBUG: Отписались от свечей при закрытии стратегии {_instrument.Ticker}");
-                        //}
+                        await _providerService.UnsubscribeFromCandlesAsync(_instrument.Uid, CurrentTimeframe);
+                        Debug.WriteLine($"DEBUG: Отписались от свечей при закрытии стратегии {_instrument.Ticker}");
                     }
                     catch (Exception ex)
                     {
@@ -2461,22 +2535,22 @@ namespace MoneyGenerator_v5.ViewModels
 
 
 
-                // 3. Отписываемся от событий
+                // 2. Отписываемся от событий
                 if (_providerService is TinkoffApiService tinkoffService)
                 {
                     tinkoffService.OnMarketStatusesUpdated -= UpdateStrategyMarketStatuses;
                 }
 
-                // 4. Останавливаем стратегию
+                // 3. Останавливаем стратегию
                 if (IsRunning)
                 {
                     await StopStrategy();
                 }
 
-                // 5. Очищаем текущую свечу, чтобы предотвратить дальнейшие обращения
+                // 4. Очищаем текущую свечу, чтобы предотвратить дальнейшие обращения
                 _currentCandle = null;
 
-                // 6. Освобождаем ресурсы стратегий
+                // 5. Освобождаем ресурсы стратегий
                 switch (_strategy.Type)
                 {
                     case "RSI":
@@ -2530,7 +2604,7 @@ namespace MoneyGenerator_v5.ViewModels
                         break;
                 }
 
-                // 7. Закрываем соединение с БД
+                // 6. Закрываем соединение с БД
                 if (_connection != null)
                 {
                     if (_connection.State != System.Data.ConnectionState.Closed)
@@ -2540,7 +2614,7 @@ namespace MoneyGenerator_v5.ViewModels
                     await _connection.DisposeAsync();
                 }
 
-                // 8. Отписываемся от менеджера соединений
+                // 7. Отписываемся от менеджера соединений
                 _connectionManager.OnConnectionStateChanged -= OnConnectionStateChanged;
                 _connectionManager?.UnregisterStrategy(this);
 

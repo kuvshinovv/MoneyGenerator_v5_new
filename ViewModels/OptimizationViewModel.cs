@@ -42,11 +42,16 @@ namespace MoneyGenerator_v5.ViewModels
         private OptimizationDataCache _dataCache = new();
         private bool _dataPrepared = false;
 
+        private bool _disposed = false;
+
         // ✅ Движок бэктеста
         private IBacktestEngine _backtestEngine;
 
         // лимит на количество хранимых результатов (например, топ-1000 лучших)
         private const int MAX_RESULTS_TO_KEEP = 1000;
+
+       
+
 
         #endregion
 
@@ -126,7 +131,10 @@ namespace MoneyGenerator_v5.ViewModels
         public bool CanStartOptimizationCommand => CanStartOptimization();
         public bool CanStopOptimizationCommand => _isOptimizing;
         public bool CanApplyParametersCommand => SelectedResult != null;
-
+        /// <summary>
+        /// Проверка, был ли объект уничтожен
+        /// </summary>
+        public bool IsDisposed => _disposed;
         #endregion
 
         #region Команды
@@ -3579,6 +3587,163 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine($"[ApplySorting] Применена сортировка по {SortColumn}, Ascending={SortAscending}");
             Debug.WriteLine("[ApplySorting] КОНЕЦ");
         }
+
+        internal void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+
+
+        /// <summary>
+        /// Виртуальный метод для освобождения ресурсов
+        /// </summary>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;
+
+            if (disposing)
+            {
+                Debug.WriteLine("[OptimizationViewModel] Начало освобождения управляемых ресурсов...");
+
+                // 1. Отменяем выполнение оптимизации
+                if (_cancellationTokenSource != null)
+                {
+                    Debug.WriteLine("[OptimizationViewModel] Отмена CancellationTokenSource...");
+                    try
+                    {
+                        if (!_cancellationTokenSource.IsCancellationRequested)
+                        {
+                            _cancellationTokenSource.Cancel();
+                        }
+                        _cancellationTokenSource.Dispose();
+                        _cancellationTokenSource = null;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[OptimizationViewModel] Ошибка при отмене CancellationTokenSource: {ex.Message}");
+                    }
+                }
+
+                // 2. Освобождаем BacktestEngine
+                if (_backtestEngine != null)
+                {
+                    Debug.WriteLine($"[OptimizationViewModel] Освобождение BacktestEngine: {_backtestEngine.GetType().Name}");
+                    try
+                    {
+                        if (_backtestEngine is IDisposable disposableEngine)
+                        {
+                            disposableEngine.Dispose();
+                        }
+                        else if (_backtestEngine is IAsyncDisposable asyncDisposable)
+                        {
+                            // Асинхронное освобождение - запускаем синхронно
+                            asyncDisposable.DisposeAsync().GetAwaiter().GetResult();
+                        }
+                        _backtestEngine = null;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[OptimizationViewModel] Ошибка при освобождении BacktestEngine: {ex.Message}");
+                    }
+                }
+
+                // 3. Очищаем кэш данных для освобождения памяти
+                if (_dataCache != null)
+                {
+                    Debug.WriteLine("[OptimizationViewModel] Очистка кэша данных...");
+                    try
+                    {
+                        _dataCache.Candles?.Clear();
+                        _dataCache.AlignedData?.Clear();
+                        _dataCache.PairsModels?.Clear();
+                        _dataCache = null;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[OptimizationViewModel] Ошибка при очистке кэша: {ex.Message}");
+                    }
+                }
+
+                // 4. Очищаем коллекции результатов
+                if (Results != null)
+                {
+                    Debug.WriteLine($"[OptimizationViewModel] Очистка коллекции результатов ({Results.Count} элементов)...");
+                    try
+                    {
+                        // Освобождаем память из каждого результата
+                        foreach (var result in Results)
+                        {
+                            result.EquityHistory = null;
+                            result.EquityDates = null;
+                        }
+                        Results.Clear();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[OptimizationViewModel] Ошибка при очистке результатов: {ex.Message}");
+                    }
+                }
+
+                // 5. Очищаем параметры
+                if (Parameters != null)
+                {
+                    Debug.WriteLine($"[OptimizationViewModel] Очистка параметров ({Parameters.Count} элементов)...");
+                    try
+                    {
+                        foreach (var param in Parameters)
+                        {
+                            param.PropertyChanged -= null;
+                        }
+                        Parameters.Clear();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[OptimizationViewModel] Ошибка при очистке параметров: {ex.Message}");
+                    }
+                }
+
+                // 6. Очищаем словарь оригинальных параметров
+                _originalParameters?.Clear();
+
+                // 7. Отписываемся от событий
+                Debug.WriteLine("[OptimizationViewModel] Отписка от событий...");
+                try
+                {
+                    this.PropertyChanged -= OnPropertyChanged;
+                    this.PropertyChanged -= OnViewModelPropertyChanged;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[OptimizationViewModel] Ошибка при отписке от событий: {ex.Message}");
+                }
+
+                Debug.WriteLine("[OptimizationViewModel] Управляемые ресурсы освобождены.");
+            }
+
+
+            // Освобождение неуправляемых ресурсов (если есть)
+            // ...
+
+
+
+            _disposed = true;
+            Debug.WriteLine("[OptimizationViewModel] Ресурсы полностью освобождены.");
+        }
+
+
+
+        /// <summary>
+        /// Финализатор (деструктор) - вызывается сборщиком мусора
+        /// </summary>
+        ~OptimizationViewModel()
+        {
+            Dispose(false);
+        }
+
+
 
         #endregion
     }

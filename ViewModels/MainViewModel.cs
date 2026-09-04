@@ -424,8 +424,7 @@ namespace MoneyGenerator_v5.ViewModels
         //  команды для для контекстного меню в таблице позиций
         public ICommand ClosePositionCommand { get; }
         public ICommand FlipPositionCommand { get; }
-
-
+        public Window? OwnerWindow { get; private set; }
 
         public MainViewModel(
             Func<string, IProvirerService> providerFactory,
@@ -864,7 +863,8 @@ namespace MoneyGenerator_v5.ViewModels
                     SelectedAccount,
                     _currentProvider,
                     _connectionManager,                   
-                    null); // Логгер опционален
+                    null,// Логгер опционален
+                    this.OwnerWindow ?? Application.Current.MainWindow ); // ✅ ПЕРЕДАЕМ ВЛАДЕЛЬЦА
 
                 var strategyWindow = new StrategyWindow
                 {
