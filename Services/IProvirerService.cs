@@ -61,7 +61,7 @@ namespace MoneyGenerator_v5.Services
 
         Task<List<Models.Operation>> GetOperationsHistoryAsync(string accountId, DateTime from, DateTime to);
         Task<Position> GetPositionQuantity(string accountId, string instrumentUid, string ticker = null);
-
+        void SetProgressCallback(object value);
 
         string ProviderName { get; } // Добавляем это свойство
 

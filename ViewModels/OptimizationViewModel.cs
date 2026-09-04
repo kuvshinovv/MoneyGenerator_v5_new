@@ -1110,6 +1110,7 @@ namespace MoneyGenerator_v5.ViewModels
 
         /// <summary>
         /// Загружает свечи с проверкой БД - догружает только недостающие
+        /// С ОБНОВЛЕНИЕМ ПРОГРЕССА ЧЕРЕЗ CALLBACK
         /// </summary>
         private async Task<List<Candle>> LoadCandlesWithCacheCheckAsync(string ticker, string uid, string timeframe, int daysToLoad)
         {
@@ -1165,58 +1166,118 @@ namespace MoneyGenerator_v5.ViewModels
 
                     if (hasEnoughData && isUpToDate)
                     {
-                        // Данных достаточно и они актуальны - берем последние N дней
+                        // Данных достаточно - берем из БД
                         Debug.WriteLine("[LoadCandlesWithCacheCheckAsync] Данные в БД актуальны и достаточны");
                         resultCandles = sorted
                             .Where(c => c.Time >= requiredStartDate)
                             .ToList();
+
+                        // ✅ ОБНОВЛЯЕМ ПРОГРЕСС - данные уже есть в БД
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            ProgressText = $"✅ Данные для {ticker} уже загружены ({resultCandles.Count} свечей)";
+                            LoadingStatus = ProgressText;
+                            IsProgressVisible = true;
+                        });
                     }
                     else
                     {
                         // Нужно догрузить
                         DateTime loadStartDate;
+                        string loadMode;
 
                         if (!hasEnoughData)
                         {
                             // Не хватает истории - загружаем с requiredStartDate
                             loadStartDate = requiredStartDate;
+                            loadMode = "загрузка истории";
                             Debug.WriteLine($"[LoadCandlesWithCacheCheckAsync] Не хватает истории, загружаем с {loadStartDate:yyyy-MM-dd}");
                         }
                         else
                         {
                             // Не хватает актуальных данных - загружаем с latestDate
                             loadStartDate = latestDate.AddMinutes(-5); // небольшой перекрытие
+                            loadMode = "дозагрузка";
                             Debug.WriteLine($"[LoadCandlesWithCacheCheckAsync] Догружаем с {loadStartDate:yyyy-MM-dd HH:mm}");
                         }
 
-                        // Загружаем недостающие свечи
-                        var newCandles = await _provider.GetHistoricalDataAsync(
-                            ticker, uid, timeframe, loadStartDate, endDate);
 
-                        Debug.WriteLine($"[LoadCandlesWithCacheCheckAsync] Загружено {newCandles?.Count ?? 0} новых свечей");
-
-                        if (newCandles != null && newCandles.Any())
+                        // ✅ УСТАНАВЛИВАЕМ CALLBACK ДЛЯ ОБНОВЛЕНИЯ ПРОГРЕССА
+                        var progressCallback = new TinkoffApiService.ProgressCallback((message, current, total) =>
                         {
-                            // Объединяем с существующими, удаляем дубликаты
-                            var combined = sorted.Concat(newCandles)
-                                .GroupBy(c => new DateTime(c.Time.Year, c.Time.Month, c.Time.Day, c.Time.Hour, c.Time.Minute, 0, c.Time.Kind))
-                                .Select(g => g.OrderByDescending(c => c.Time).First())
-                                .ToList();
+                            // Вычисляем общий прогресс для этого инструмента (от 1% до 40% для основного, 41%-70% для парного)
+                            // Это будет обработано в PrepareDataAsync
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                ProgressText = message;
+                                LoadingStatus = message;
+                                IsProgressVisible = true;
+                            });
+                        });
 
-                            resultCandles = combined
-                                .Where(c => c.Time >= requiredStartDate)
-                                .OrderBy(c => c.Time)
-                                .ToList();
-
-                            // ✅ Сохраняем обновленные данные в БД
-                            await SaveCandlesToDatabaseAsync(ticker, uid, timeframe, combined);
+                        // ✅ УСТАНАВЛИВАЕМ CALLBACK В ПРОВАЙДЕР
+                        if (_provider is TinkoffApiService tinkoffProvider)
+                        {
+                            tinkoffProvider.SetProgressCallback(progressCallback);
                         }
-                        else
+
+
+
+
+                        try
                         {
-                            // Не удалось загрузить новые данные - используем то что есть
-                            resultCandles = sorted
-                                .Where(c => c.Time >= requiredStartDate)
-                                .ToList();
+                            // ✅ ЗАГРУЖАЕМ ДАННЫЕ (ВНУТРИ ПРОВАЙДЕРА БУДУТ ОБНОВЛЕНИЯ ПРОГРЕССА)
+                            var newCandles = await _provider.GetHistoricalDataAsync(
+                                ticker, uid, timeframe, loadStartDate, endDate);
+
+                            Debug.WriteLine($"[LoadCandlesWithCacheCheckAsync] Загружено {newCandles?.Count ?? 0} новых свечей");
+
+                            if (newCandles != null && newCandles.Any())
+                            {
+                                // Объединяем с существующими, удаляем дубликаты
+                                var combined = sorted.Concat(newCandles)
+                                    .GroupBy(c => new DateTime(c.Time.Year, c.Time.Month, c.Time.Day, c.Time.Hour, c.Time.Minute, 0, c.Time.Kind))
+                                    .Select(g => g.OrderByDescending(c => c.Time).First())
+                                    .ToList();
+
+                                resultCandles = combined
+                                    .Where(c => c.Time >= requiredStartDate)
+                                    .OrderBy(c => c.Time)
+                                    .ToList();
+
+                                // ✅ Сохраняем обновленные данные в БД
+                                await SaveCandlesToDatabaseAsync(ticker, uid, timeframe, combined);
+
+                                // ✅ ОБНОВЛЯЕМ ПРОГРЕСС ПОСЛЕ СОХРАНЕНИЯ
+                                await Application.Current.Dispatcher.InvokeAsync(() =>
+                                {
+                                    ProgressText = $"✅ Сохранено {resultCandles.Count} свечей для {ticker}";
+                                    LoadingStatus = ProgressText;
+                                    IsProgressVisible = true;
+                                });
+                            }
+                            else
+                            {
+                                resultCandles = sorted
+                                    .Where(c => c.Time >= requiredStartDate)
+                                    .ToList();
+
+                                await Application.Current.Dispatcher.InvokeAsync(() =>
+                                {
+                                    ProgressText = $"⚠️ Используем существующие данные для {ticker} ({resultCandles.Count} свечей)";
+                                    LoadingStatus = ProgressText;
+                                });
+                            }
+                        }
+                        finally
+                        {
+                            // ✅ СБРАСЫВАЕМ CALLBACK ПОСЛЕ ЗАГРУЗКИ
+                            //if (_provider is TinkoffApiService tinkoffProvider)
+                            //{
+                            //    tinkoffProvider.SetProgressCallback(null);
+                            //}
+
+                            _provider.SetProgressCallback(null);
                         }
                     }
                 }
@@ -1225,14 +1286,53 @@ namespace MoneyGenerator_v5.ViewModels
                     // В БД нет данных - загружаем все
                     Debug.WriteLine($"[LoadCandlesWithCacheCheckAsync] В БД нет данных для {ticker}, загружаем все");
 
-                    var newCandles = await _provider.GetHistoricalDataAsync(
-                        ticker, uid, timeframe, requiredStartDate, endDate);
-
-                    if (newCandles != null && newCandles.Any())
+                    // ✅ УСТАНАВЛИВАЕМ CALLBACK ДЛЯ ОБНОВЛЕНИЯ ПРОГРЕССА
+                    var progressCallback = new TinkoffApiService.ProgressCallback((message, current, total) =>
                     {
-                        resultCandles = newCandles.ToList();
-                        // Сохраняем в БД
-                        await SaveCandlesToDatabaseAsync(ticker, uid, timeframe, resultCandles);
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            ProgressText = message;
+                            LoadingStatus = message;
+                            IsProgressVisible = true;
+                        });
+                    });
+
+                    if (_provider is TinkoffApiService tinkoffProvider)
+                    {
+                        tinkoffProvider.SetProgressCallback(progressCallback);
+                    }
+
+
+
+
+
+
+
+
+                    try
+                    {
+                        var newCandles = await _provider.GetHistoricalDataAsync(
+                            ticker, uid, timeframe, requiredStartDate, endDate);
+
+                        if (newCandles != null && newCandles.Any())
+                        {
+                            resultCandles = newCandles.ToList();
+                            await SaveCandlesToDatabaseAsync(ticker, uid, timeframe, resultCandles);
+
+                            await Application.Current.Dispatcher.InvokeAsync(() =>
+                            {
+                                ProgressText = $"✅ Сохранено {resultCandles.Count} свечей для {ticker}";
+                                LoadingStatus = ProgressText;
+                            });
+                        }
+                    }
+                    finally
+                    {
+                        //if (_provider is TinkoffApiService tinkoffProvider)
+                        //{
+                        //    tinkoffProvider.SetProgressCallback(null);
+                        //}
+                        _provider.SetProgressCallback(null);
                     }
                 }
 
@@ -1261,6 +1361,15 @@ namespace MoneyGenerator_v5.ViewModels
                     }
 
                     Debug.WriteLine($"[LoadCandlesWithCacheCheckAsync] Итоговое количество свечей для {ticker}: {uniqueCandles.Count}");
+
+                    // ✅ ФИНАЛЬНОЕ ОБНОВЛЕНИЕ ПРОГРЕССА
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        ProgressText = $"✅ Готово: {uniqueCandles.Count} свечей для {ticker}";
+                        LoadingStatus = ProgressText;
+                        IsProgressVisible = true;
+                    });
+
                     return uniqueCandles;
                 }
 

@@ -116,6 +116,14 @@ namespace MoneyGenerator_v5.Services
         public bool IsConnected => _client != null;
         public bool IsSandboxMode { get; private set; }
 
+
+        // Делегат для уведомления о прогрессе загрузки
+        public delegate void ProgressCallback(string message, int current, int total);
+        private ProgressCallback _progressCallback;
+
+
+
+
         #endregion
 
 
@@ -2673,17 +2681,6 @@ namespace MoneyGenerator_v5.Services
         #region Загрузка исторических данных
         public async Task<List<Models.Candle>> GetHistoricalDataAsync(string tiker, string instrumentUid, string timeframe, DateTime startTime, DateTime endTime)
         {
-
-            //Debug.WriteLine($"DEBUG5: ---------------------------------------------------- {instrumentUid}, timeframe: {timeframe}");
-
-
-
-           /* if (string.IsNullOrEmpty(instrumentUid) || _tinkoffService == null)
-            {
-                Debug.WriteLine("DEBUG: TinkoffApiService:  InstrumentUid is null or empty OR TinkoffService is null");
-                return new List<Models.Candle>();
-            }*/
-
             try
             {
                 Debug.WriteLine($"DEBUG: TinkoffApiService:  Loading historical data for {tiker}, timeframe: {timeframe}, from {startTime} to {endTime}");
@@ -2694,6 +2691,14 @@ namespace MoneyGenerator_v5.Services
                 // Разбиваем диапазон на части по 1 дню
                 var currentStart = startTime;
 
+                // ✅ РАССЧИТЫВАЕМ ОБЩЕЕ КОЛИЧЕСТВО ЧАНКОВ ДЛЯ ПРОГРЕССА
+                var totalDays = (endTime - startTime).TotalDays;
+                var totalChunks = (int)Math.Ceiling(totalDays);
+                if (totalChunks < 1) totalChunks = 1;
+                int chunkIndex = 0;
+
+
+
                 while (currentStart < endTime)
                 {
                     var currentEnd = currentStart.AddDays(1);
@@ -2703,6 +2708,13 @@ namespace MoneyGenerator_v5.Services
                     }
 
                     Debug.WriteLine($"DEBUG: TinkoffApiService:  Loading chunk for {tiker} from {currentStart} to {currentEnd}");
+
+                    // ✅ ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ О ПРОГРЕССЕ ПЕРЕД ЗАГРУЗКОЙ ЧАНКА
+                    _progressCallback?.Invoke(
+                        $"Загрузка {tiker}: чанк {chunkIndex}/{totalChunks} ({currentStart:dd.MM.yyyy} - {currentEnd:dd.MM.yyyy})",
+                        chunkIndex,
+                        totalChunks);
+
 
                     try
                     {
@@ -2726,11 +2738,17 @@ namespace MoneyGenerator_v5.Services
                             }).ToList();
 
                             allCandles.AddRange(convertedCandles);
-                            Debug.WriteLine($"DEBUG: TinkoffApiService:  Loaded {chunkCandles.Count} candles for chunk");
+                            Debug.WriteLine($"DEBUG: TinkoffApiService:  Loaded {chunkCandles.Count} candles for chunk {chunkIndex}");
+
+                            // ✅ ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ПОСЛЕ ЗАГРУЗКИ ЧАНКА
+                            _progressCallback?.Invoke(
+                                $"✅ Загружено {allCandles.Count} свечей для {tiker} (чанк {chunkIndex}/{totalChunks})",
+                                chunkIndex,
+                                totalChunks);
                         }
 
                         // Небольшая задержка между запросами
-                        await Task.Delay(100);
+                        await Task.Delay(50);
                     }
                     catch (RpcException rpcEx) when (rpcEx.StatusCode == StatusCode.InvalidArgument)
                     {
@@ -5409,7 +5427,11 @@ namespace MoneyGenerator_v5.Services
 
 
 
-
+        // метод для установки callback  для прогрессбара в оптимизации
+        public void SetProgressCallback(ProgressCallback callback)
+        {
+            _progressCallback = callback;
+        }
 
 
         public async ValueTask DisposeAsync()
