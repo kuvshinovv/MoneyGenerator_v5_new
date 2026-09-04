@@ -1151,6 +1151,35 @@ namespace MoneyGenerator_v5.ViewModels
 
                 List<Candle> resultCandles = new List<Candle>();
 
+                // ✅ СОХРАНЯЕМ НАЧАЛЬНЫЙ ПРОГРЕСС ДЛЯ ЭТОГО ИНСТРУМЕНТА
+                double progressStart = 0;
+                double progressEnd = 0;
+
+                // Определяем, какой это инструмент (основной или парный)
+                if (_strategyType == "PairsTrading")
+                {
+                    var instrument = _strategyViewModel.Instrument;
+                    if (ticker == instrument.Ticker)
+                    {
+                        // Основной инструмент (B) - прогресс от 1% до 40%
+                        progressStart = 1;
+                        progressEnd = 40;
+                    }
+                    else
+                    {
+                        // Парный инструмент (A) - прогресс от 41% до 70%
+                        progressStart = 41;
+                        progressEnd = 70;
+                    }
+                }
+                else
+                {
+                    // Для остальных стратегий - прогресс от 1% до 40%
+                    progressStart = 1;
+                    progressEnd = 40;
+                }
+
+
                 if (existingCandles != null && existingCandles.Any())
                 {
                     // Сортируем по времени
@@ -1178,6 +1207,8 @@ namespace MoneyGenerator_v5.ViewModels
                             ProgressText = $"✅ Данные для {ticker} уже загружены ({resultCandles.Count} свечей)";
                             LoadingStatus = ProgressText;
                             IsProgressVisible = true;
+                            // Устанавливаем прогресс на конец диапазона
+                            ProgressValue = progressEnd;
                         });
                     }
                     else
@@ -1205,6 +1236,12 @@ namespace MoneyGenerator_v5.ViewModels
                         // ✅ УСТАНАВЛИВАЕМ CALLBACK ДЛЯ ОБНОВЛЕНИЯ ПРОГРЕССА
                         var progressCallback = new TinkoffApiService.ProgressCallback((message, current, total) =>
                         {
+                            // ✅ РАССЧИТЫВАЕМ ПРОГРЕСС В ДИАПАЗОНЕ ОТ progressStart ДО progressEnd
+                            double progressRange = progressEnd - progressStart;
+                            double progressPercent = progressStart + (progressRange * ((double)current / total));
+
+
+
                             // Вычисляем общий прогресс для этого инструмента (от 1% до 40% для основного, 41%-70% для парного)
                             // Это будет обработано в PrepareDataAsync
                             Application.Current.Dispatcher.Invoke(() =>
@@ -1212,6 +1249,8 @@ namespace MoneyGenerator_v5.ViewModels
                                 ProgressText = message;
                                 LoadingStatus = message;
                                 IsProgressVisible = true;
+                                // ✅ ОБНОВЛЯЕМ ЗНАЧЕНИЕ ПРОГРЕССА
+                                ProgressValue = progressPercent;
                             });
                         });
 
@@ -1254,6 +1293,7 @@ namespace MoneyGenerator_v5.ViewModels
                                     ProgressText = $"✅ Сохранено {resultCandles.Count} свечей для {ticker}";
                                     LoadingStatus = ProgressText;
                                     IsProgressVisible = true;
+                                    ProgressValue = progressEnd;
                                 });
                             }
                             else
@@ -1266,6 +1306,7 @@ namespace MoneyGenerator_v5.ViewModels
                                 {
                                     ProgressText = $"⚠️ Используем существующие данные для {ticker} ({resultCandles.Count} свечей)";
                                     LoadingStatus = ProgressText;
+                                    ProgressValue = progressEnd;
                                 });
                             }
                         }
@@ -1289,11 +1330,17 @@ namespace MoneyGenerator_v5.ViewModels
                     // ✅ УСТАНАВЛИВАЕМ CALLBACK ДЛЯ ОБНОВЛЕНИЯ ПРОГРЕССА
                     var progressCallback = new TinkoffApiService.ProgressCallback((message, current, total) =>
                     {
+                        // ✅ РАССЧИТЫВАЕМ ПРОГРЕСС В ДИАПАЗОНЕ ОТ progressStart ДО progressEnd
+                        double progressRange = progressEnd - progressStart;
+                        double progressPercent = progressStart + (progressRange * ((double)current / total));
+
                         Application.Current.Dispatcher.Invoke(() =>
                         {
                             ProgressText = message;
                             LoadingStatus = message;
                             IsProgressVisible = true;
+                            // ✅ ОБНОВЛЯЕМ ЗНАЧЕНИЕ ПРОГРЕССА
+                            ProgressValue = progressPercent;
                         });
                     });
 
@@ -1301,12 +1348,6 @@ namespace MoneyGenerator_v5.ViewModels
                     {
                         tinkoffProvider.SetProgressCallback(progressCallback);
                     }
-
-
-
-
-
-
 
 
                     try
@@ -1323,15 +1364,12 @@ namespace MoneyGenerator_v5.ViewModels
                             {
                                 ProgressText = $"✅ Сохранено {resultCandles.Count} свечей для {ticker}";
                                 LoadingStatus = ProgressText;
+                                ProgressValue = progressEnd;
                             });
                         }
                     }
                     finally
                     {
-                        //if (_provider is TinkoffApiService tinkoffProvider)
-                        //{
-                        //    tinkoffProvider.SetProgressCallback(null);
-                        //}
                         _provider.SetProgressCallback(null);
                     }
                 }
@@ -1368,6 +1406,7 @@ namespace MoneyGenerator_v5.ViewModels
                         ProgressText = $"✅ Готово: {uniqueCandles.Count} свечей для {ticker}";
                         LoadingStatus = ProgressText;
                         IsProgressVisible = true;
+                        ProgressValue = progressEnd;
                     });
 
                     return uniqueCandles;

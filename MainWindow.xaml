@@ -173,7 +173,7 @@
                 </StackPanel>
 
                 <!-- Список инструментов -->
-                <ListBox SelectedItem="{Binding SelectedInstrument}" Height="55" Width="470" Margin="0,0,0,5" 
+                <ListBox SelectedItem="{Binding SelectedInstrument}" Height="155" Width="470" Margin="0,0,0,5" 
                          DisplayMemberPath="DisplayName">
                     <ListBox.ItemsSource>
                         <MultiBinding Converter="{StaticResource SearchFilterConverter}">

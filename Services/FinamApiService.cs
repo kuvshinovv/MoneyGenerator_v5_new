@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using static MoneyGenerator_v5.Services.TinkoffApiService;
 
 namespace MoneyGenerator_v5.Services
 {
@@ -16,7 +17,7 @@ namespace MoneyGenerator_v5.Services
         public bool IsConnected => throw new NotImplementedException();
 
         public bool IsSandboxMode => throw new NotImplementedException();
-
+        private ProgressCallback _progressCallback;
 
 
         public FinamApiService(ILogger<FinamApiService> logger, TokenManager tokenManager)
@@ -190,6 +191,12 @@ namespace MoneyGenerator_v5.Services
         public Task<Position> GetPositionQuantity(string accountId, string instrumentUid, string ticker = null)
         {
             throw new NotImplementedException();
+        }
+
+        // метод для установки callback  для прогрессбара в оптимизации
+        public void SetProgressCallback(ProgressCallback callback)
+        {
+            _progressCallback = callback;
         }
     }
 }

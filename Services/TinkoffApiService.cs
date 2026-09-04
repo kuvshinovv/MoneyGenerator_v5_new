@@ -2695,8 +2695,9 @@ namespace MoneyGenerator_v5.Services
                 var totalDays = (endTime - startTime).TotalDays;
                 var totalChunks = (int)Math.Ceiling(totalDays);
                 if (totalChunks < 1) totalChunks = 1;
-                int chunkIndex = 0;
 
+                // ✅ ИНИЦИАЛИЗИРУЕМ СЧЕТЧИК ЧАНКОВ С 1, А НЕ С 0
+                int chunkIndex = 0;
 
 
                 while (currentStart < endTime)
@@ -2707,7 +2708,11 @@ namespace MoneyGenerator_v5.Services
                         currentEnd = endTime;
                     }
 
-                    Debug.WriteLine($"DEBUG: TinkoffApiService:  Loading chunk for {tiker} from {currentStart} to {currentEnd}");
+                    // ✅ УВЕЛИЧИВАЕМ СЧЕТЧИК НА КАЖДОЙ ИТЕРАЦИИ
+                    chunkIndex++;
+
+
+                    Debug.WriteLine($"DEBUG: TinkoffApiService:  Loading chunk {chunkIndex}/{totalChunks} for {tiker} from {currentStart} to {currentEnd}");
 
                     // ✅ ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ О ПРОГРЕССЕ ПЕРЕД ЗАГРУЗКОЙ ЧАНКА
                     _progressCallback?.Invoke(

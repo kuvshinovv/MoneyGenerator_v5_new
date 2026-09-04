@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Tinkoff.InvestApi.V1;
+using static MoneyGenerator_v5.Services.TinkoffApiService;
 using static Tinkoff.InvestApi.V1.OrderStateStreamResponse.Types;
 
 namespace MoneyGenerator_v5.Services
@@ -61,7 +62,7 @@ namespace MoneyGenerator_v5.Services
 
         Task<List<Models.Operation>> GetOperationsHistoryAsync(string accountId, DateTime from, DateTime to);
         Task<Position> GetPositionQuantity(string accountId, string instrumentUid, string ticker = null);
-        void SetProgressCallback(object value);
+        public void SetProgressCallback(ProgressCallback callback);
 
         string ProviderName { get; } // Добавляем это свойство
 
