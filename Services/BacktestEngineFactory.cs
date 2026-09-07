@@ -31,8 +31,7 @@ namespace MoneyGenerator_v5.Services
                     return new MaBacktestEngine();
 
                 case "RSI":
-                    // TODO: Реализовать RsiBacktestEngine
-                    throw new NotSupportedException($"RSI стратегия пока не поддерживается для оптимизации");
+                    return new RsiBacktestEngine();
 
                 case "Rating":
                     // TODO: Реализовать RatingBacktestEngine

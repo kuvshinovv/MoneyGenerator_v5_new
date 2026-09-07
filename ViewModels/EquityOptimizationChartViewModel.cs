@@ -872,7 +872,7 @@ namespace MoneyGenerator_v5.ViewModels
                 {
                     Filter = "PNG Image|*.png|JPEG Image|*.jpg",
                     DefaultExt = "png",
-                    FileName = $"Equity_Optimization_{DateTime.Now:yyyyMMdd_HHmmss}_{_tickerName}_{_timeFrame}"
+                    FileName = $"Equity_Optimization_{DateTime.Now:yyyyMMdd_HHmmss}_{_strategyType}_{_tickerName}_{_timeFrame}"
                 };
 
                 if (dialog.ShowDialog() == true)

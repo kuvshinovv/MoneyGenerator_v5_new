@@ -2715,10 +2715,10 @@ namespace MoneyGenerator_v5.Services
                     Debug.WriteLine($"DEBUG: TinkoffApiService:  Loading chunk {chunkIndex}/{totalChunks} for {tiker} from {currentStart} to {currentEnd}");
 
                     // ✅ ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ О ПРОГРЕССЕ ПЕРЕД ЗАГРУЗКОЙ ЧАНКА
-                    _progressCallback?.Invoke(
-                        $"Загрузка {tiker}: чанк {chunkIndex}/{totalChunks} ({currentStart:dd.MM.yyyy} - {currentEnd:dd.MM.yyyy})",
-                        chunkIndex,
-                        totalChunks);
+                    //_progressCallback?.Invoke(
+                    //   $"Загрузка {tiker}: чанк {chunkIndex}/{totalChunks} ({currentStart:dd.MM.yyyy} - {currentEnd:dd.MM.yyyy})",
+                    //   chunkIndex,
+                    //  totalChunks);
 
 
                     try

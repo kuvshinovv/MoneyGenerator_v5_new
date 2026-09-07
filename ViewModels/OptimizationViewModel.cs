@@ -302,6 +302,10 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine("[AddPairsTradingParameters] КОНЕЦ");
         }
 
+        /// <summary>
+        /// Добавляет параметры для оптимизации RSI стратегии
+        /// ВЫВОДИТ ТОЛЬКО ТЕ ПАРАМЕТРЫ, КОТОРЫЕ РЕАЛЬНО ИСПОЛЬЗУЮТСЯ В СТРАТЕГИИ
+        /// </summary>
         private void AddRsiParameters()
         {
             Debug.WriteLine("[AddRsiParameters] НАЧАЛО");
@@ -319,17 +323,184 @@ namespace MoneyGenerator_v5.ViewModels
                 return;
             }
 
-            Debug.WriteLine($"[AddRsiParameters] RsiPeriod={rsiParams.RsiPeriod}");
-            Debug.WriteLine($"[AddRsiParameters] RsiOverbought={rsiParams.RsiOverbought}");
-            Debug.WriteLine($"[AddRsiParameters] RsiOversold={rsiParams.RsiOversold}");
+            // ============================================================
+            // 1. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА - ТОЛЬКО ВЫБРАННЫЙ ТИП
+            // ============================================================
 
-            AddParameter("RsiPeriod", "Период RSI", rsiParams.RsiPeriod, 5, 50, 1);
-            AddParameter("RsiOverbought", "Перекупленность RSI", rsiParams.RsiOverbought, 60, 90, 1);
-            AddParameter("RsiOversold", "Перепроданность RSI", rsiParams.RsiOversold, 10, 40, 1);
+            // ✅ Параметры ВЫБРАННОГО осциллятора
+            if (rsiParams.OscillatorType == OscillatorType.StochRSI)
+            {
+                Debug.WriteLine("[AddRsiParameters] Добавление параметров StochRSI");
+                //AddParameter("StochPeriod", "Период StochRSI", rsiParams.StochPeriod, 5, 50, 1);
+                //AddParameter("StochOverbought", "Перекупленность StochRSI", rsiParams.StochOverbought, 60, 90, 1);
+                //AddParameter("StochOversold", "Перепроданность StochRSI", rsiParams.StochOversold, 10, 40, 1);
+                //AddParameter("StochSmoothK", "Сглаживание K StochRSI", rsiParams.StochSmoothK, 1, 10, 1);
+                //AddParameter("StochSmoothD", "Сглаживание D StochRSI", rsiParams.StochSmoothD, 1, 10, 1);
+
+                // ✅ Базовые параметры RSI 
+                AddParameter("RsiPeriod", "Период RSI", rsiParams.RsiPeriod, 5, 50, 1);
+                AddParameter("RsiOverbought", "Перекупленность RSI", rsiParams.RsiOverbought, 60, 90, 1);
+                AddParameter("RsiOversold", "Перепроданность RSI", rsiParams.RsiOversold, 10, 40, 1);
+            }
+            else // Stochastic
+            {
+                Debug.WriteLine("[AddRsiParameters] Добавление параметров Stochastic");
+                AddParameter("StochPeriod", "Период Stochastic", rsiParams.StochPeriod, 5, 50, 1);
+                AddParameter("StochOverbought", "Перекупленность Stochastic", rsiParams.StochOverbought, 60, 90, 1);
+                AddParameter("StochOversold", "Перепроданность Stochastic", rsiParams.StochOversold, 10, 40, 1);
+                AddParameter("StochSmoothK", "Сглаживание K Stochastic", rsiParams.StochSmoothK, 1, 10, 1);
+                AddParameter("StochSmoothD", "Сглаживание D Stochastic", rsiParams.StochSmoothD, 1, 10, 1);
+            }
+
+            // ============================================================
+            // 2. ПАРАМЕТРЫ ВХОДА - ТОЛЬКО ВЫБРАННЫЙ ТИП
+            // ============================================================
+
+            // Размер позиции - всегда нужен
             AddParameter("OrderSizePercent", "Размер позиции (%)", rsiParams.OrderSizePercent, 1, 50, 1);
-            AddParameter("TakeProfitPercent", "Тейк-профит (%)", rsiParams.TakeProfitPercent, 0.5m, 10, 0.5m);
-            AddParameter("StopLossPercent", "Стоп-лосс (%)", rsiParams.StopLossPercent, 0.5m, 5, 0.5m);
-            Debug.WriteLine("[AddRsiParameters] КОНЕЦ");
+
+            // Проскальзывание входа - всегда нужно
+            AddParameter("EntrySlippage", "Проскальзывание входа (%)", rsiParams.EntrySlippage, 0, 1, 0.01m);
+
+            // ✅ Параметры в зависимости от типа входа
+            switch (rsiParams.EntryOrderType)
+            {
+                case MoneyGenerator_v5.Strategies.OrderType.Market:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: Market - дополнительные параметры не требуются");
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.Limit:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: Limit");
+                    AddParameter("EntryLimitOffsetPercent", "Смещение Limit (%)", rsiParams.EntryLimitOffsetPercent, 0.01m, 5, 0.01m);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.StopLimit:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: StopLimit");
+                    AddParameter("EntryStopOffsetPercent", "Смещение StopLimit (%)", rsiParams.EntryStopOffsetPercent, 0.01m, 5, 0.01m);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitEntry:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: MovingTakeProfitEntry");
+                    AddParameter("MovingTPEntryCalculationType", "Расчет TP входа", (int)rsiParams.MovingTPEntryCalculationType, 0, 2, 1);
+                    AddParameter("MovingTPEntryTargetPercent", "Цель TP входа (%)", rsiParams.MovingTPEntryTargetPercent, 0.1m, 10, 0.1m);
+                    AddParameter("MovingTPEntrySlippage", "Проскальзывание TP входа", rsiParams.MovingTPEntrySlippage, 0, 1, 0.01m);
+                    AddParameter("MovingTPEntryTimeoutMinutes", "Таймаут TP входа (мин)", rsiParams.MovingTPEntryTimeoutMinutes, 1, 1440, 5);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.LevelCrossingEntry:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: LevelCrossingEntry");
+                    AddParameter("LevelCrossingEntryProtectiveStopPercent", "Защитный стоп входа (%)", rsiParams.LevelCrossingEntryProtectiveStopPercent, 0.05m, 2, 0.05m);
+                    AddParameter("LevelCrossingEntryProtectiveStopDistancePercent", "Мин. дистанция стопа входа (%)", rsiParams.LevelCrossingEntryProtectiveStopDistancePercent, 0.05m, 2, 0.05m);
+                    break;
+
+                default:
+                    Debug.WriteLine($"[AddRsiParameters] Неизвестный тип входа: {rsiParams.EntryOrderType}");
+                    break;
+            }
+
+            // ============================================================
+            // 3. ПАРАМЕТРЫ ВЫХОДА - ТОЛЬКО ВЫБРАННЫЙ ТИП
+            // ============================================================
+
+            // Проскальзывание выхода - всегда нужно
+            AddParameter("ExitSlippage", "Проскальзывание выхода (%)", rsiParams.ExitSlippage, 0, 1, 0.01m);
+
+            // Закрытие при смене сигнала - всегда доступно
+            AddParameter("CloseOnSignalReversal", "Закрытие при смене сигнала", rsiParams.CloseOnSignalReversal ? 1 : 0, 0, 1, 1);
+
+            // ✅ Параметры в зависимости от типа выхода
+            switch (rsiParams.ExitOrderType)
+            {
+                case MoneyGenerator_v5.Strategies.OrderType.Market:
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: Market");
+                    AddParameter("TakeProfitCalculationType", "Расчет тейк-профита", (int)rsiParams.TakeProfitCalculationType, 0, 2, 1);
+                    AddParameter("TakeProfitPercent", "Тейк-профит (%)", rsiParams.TakeProfitPercent, 0.1m, 10, 0.1m);
+                    AddParameter("TakeProfitActivationPrice", "Цена активации TP", rsiParams.TakeProfitActivationPrice, 0, 100, 0.1m);
+                    AddParameter("TakeProfitSlippage", "Проскальзывание TP", rsiParams.TakeProfitSlippage, 0, 1, 0.01m);
+                    AddParameter("StopLossCalculationType", "Расчет стоп-лосса", (int)rsiParams.StopLossCalculationType, 0, 2, 1);
+                    AddParameter("StopLossPercent", "Стоп-лосс (%)", rsiParams.StopLossPercent, 0.1m, 5, 0.1m);
+                    AddParameter("StopLossActivationPrice", "Цена активации SL", rsiParams.StopLossActivationPrice, 0, 100, 0.1m);
+                    AddParameter("StopLossSlippage", "Проскальзывание SL", rsiParams.StopLossSlippage, 0, 1, 0.01m);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitExit:
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: MovingTakeProfitExit");
+                    AddParameter("MovingTPExitCalculationType", "Расчет TP выхода", (int)rsiParams.MovingTPExitCalculationType, 0, 2, 1);
+                    AddParameter("MovingTPExitStartPercent", "Стартовый TP выхода (%)", rsiParams.MovingTPExitStartPercent, 0.1m, 10, 0.1m);
+                    AddParameter("MovingTPExitSlippage", "Проскальзывание TP выхода", rsiParams.MovingTPExitSlippage, 0, 1, 0.01m);
+                    AddParameter("MovingTPExitTimeoutMinutes", "Таймаут TP выхода (мин)", rsiParams.MovingTPExitTimeoutMinutes, 1, 1440, 5);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.TrailingStopExit:
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: TrailingStopExit");
+                    AddParameter("TrailingStopExitCalculationType", "Расчет трейлинг-стопа", (int)rsiParams.TrailingStopExitCalculationType, 0, 2, 1);
+                    AddParameter("TrailingStopExitDistancePercent", "Дистанция трейлинг-стопа (%)", rsiParams.TrailingStopExitDistancePercent, 0.1m, 5, 0.1m);
+                    AddParameter("TrailingStopExitSlippage", "Проскальзывание трейлинг-стопа", rsiParams.TrailingStopExitSlippage, 0, 1, 0.01m);
+                    AddParameter("TrailingStopExitActivationPercent", "Активация трейлинг-стопа (%)", rsiParams.TrailingStopExitActivationPercent, 0.1m, 10, 0.1m);
+                    AddParameter("ProtectiveStopPercent", "Защитный стоп (%)", rsiParams.ProtectiveStopPercent, 0.1m, 5, 0.1m);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.LevelCrossingExit:
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: LevelCrossingExit");
+                    AddParameter("LevelCrossingExitProtectiveStopPercent", "Защитный стоп выхода (%)", rsiParams.LevelCrossingExitProtectiveStopPercent, 0.05m, 2, 0.05m);
+                    AddParameter("LevelCrossingExitProtectiveStopDistancePercent", "Мин. дистанция стопа выхода (%)", rsiParams.LevelCrossingExitProtectiveStopDistancePercent, 0.05m, 2, 0.05m);
+                    break;
+
+                default:
+                    Debug.WriteLine($"[AddRsiParameters] Неизвестный тип выхода: {rsiParams.ExitOrderType}");
+                    break;
+            }
+
+            // ============================================================
+            // 4. ОБЩИЙ ПАРАМЕТР - ATR (используется в нескольких местах)
+            // ============================================================
+
+            // ✅ ATR добавляем только если он используется в текущей конфигурации
+            bool usesAtr = false;
+
+            // Проверяем вход
+            if (rsiParams.EntryOrderType == MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitEntry &&
+                rsiParams.MovingTPEntryCalculationType == PriceCalculationType.ATR)
+            {
+                usesAtr = true;
+            }
+
+            // Проверяем выход
+            if (!usesAtr)
+            {
+                switch (rsiParams.ExitOrderType)
+                {
+                    case MoneyGenerator_v5.Strategies.OrderType.Market:
+                        if (rsiParams.TakeProfitCalculationType == PriceCalculationType.ATR ||
+                            rsiParams.StopLossCalculationType == PriceCalculationType.ATR)
+                        {
+                            usesAtr = true;
+                        }
+                        break;
+
+                    case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitExit:
+                        if (rsiParams.MovingTPExitCalculationType == PriceCalculationType.ATR)
+                        {
+                            usesAtr = true;
+                        }
+                        break;
+
+                    case MoneyGenerator_v5.Strategies.OrderType.TrailingStopExit:
+                        if (rsiParams.TrailingStopExitCalculationType == PriceCalculationType.ATR)
+                        {
+                            usesAtr = true;
+                        }
+                        break;
+                }
+            }
+
+            if (usesAtr)
+            {
+                Debug.WriteLine("[AddRsiParameters] Добавление ATR (используется в настройках)");
+                AddParameter("AtrMultiplier", "Множитель ATR", rsiParams.AtrMultiplier, 0.5m, 5, 0.25m);
+            }
+
+            Debug.WriteLine($"[AddRsiParameters] КОНЕЦ. Добавлено параметров: {Parameters.Count}");
         }
 
         /// <summary>
@@ -1290,7 +1461,7 @@ namespace MoneyGenerator_v5.ViewModels
                                 // ✅ ОБНОВЛЯЕМ ПРОГРЕСС ПОСЛЕ СОХРАНЕНИЯ
                                 await Application.Current.Dispatcher.InvokeAsync(() =>
                                 {
-                                    ProgressText = $"✅ Сохранено {resultCandles.Count} свечей для {ticker}";
+                                    //ProgressText = $"✅ Сохранено {resultCandles.Count} свечей для {ticker}";
                                     LoadingStatus = ProgressText;
                                     IsProgressVisible = true;
                                     ProgressValue = progressEnd;
@@ -1362,7 +1533,7 @@ namespace MoneyGenerator_v5.ViewModels
 
                             await Application.Current.Dispatcher.InvokeAsync(() =>
                             {
-                                ProgressText = $"✅ Сохранено {resultCandles.Count} свечей для {ticker}";
+                               // ProgressText = $"✅ Сохранено {resultCandles.Count} свечей для {ticker}";
                                 LoadingStatus = ProgressText;
                                 ProgressValue = progressEnd;
                             });
@@ -1403,7 +1574,7 @@ namespace MoneyGenerator_v5.ViewModels
                     // ✅ ФИНАЛЬНОЕ ОБНОВЛЕНИЕ ПРОГРЕССА
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        ProgressText = $"✅ Готово: {uniqueCandles.Count} свечей для {ticker}";
+                       // ProgressText = $"✅ Готово: {uniqueCandles.Count} свечей для {ticker}";
                         LoadingStatus = ProgressText;
                         IsProgressVisible = true;
                         ProgressValue = progressEnd;
@@ -3250,230 +3421,51 @@ namespace MoneyGenerator_v5.ViewModels
             RefreshOptimizationParameters();
 
             Debug.WriteLine("[ApplySelectedParameters] Параметры применены и окно обновлено");
-            MessageBox.Show("Параметры успешно применены к стратегии", "Успех",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            //MessageBox.Show("Параметры успешно применены к стратегии", "Успех",
+            //    MessageBoxButton.OK, MessageBoxImage.Information);
             Debug.WriteLine("[ApplySelectedParameters] КОНЕЦ");
         }
 
         /// <summary>
         /// Обновляет параметры в окне оптимизации из текущих значений стратегии
+        /// Поддерживает все типы стратегий: MA, RSI, PairsTrading, Rating
         /// </summary>
         private void RefreshOptimizationParameters()
         {
             Debug.WriteLine("[RefreshOptimizationParameters] НАЧАЛО");
+            Debug.WriteLine($"[RefreshOptimizationParameters] Стратегия: {_strategyType}");
 
             try
             {
-                // Получаем текущие параметры из стратегии
-                var strategy = _strategyViewModel.MaStrategy;
-                if (strategy == null)
+                // ============================================================
+                // 1. ОБНОВЛЕНИЕ ПАРАМЕТРОВ В ЗАВИСИМОСТИ ОТ ТИПА СТРАТЕГИИ
+                // ============================================================
+                switch (_strategyType)
                 {
-                    Debug.WriteLine("[RefreshOptimizationParameters] strategy is NULL!");
-                    return;
+                    case "MA":
+                        RefreshMaParameters();
+                        break;
+
+                    case "RSI":
+                        RefreshRsiParameters();
+                        break;
+
+                    case "PairsTrading":
+                        RefreshPairsTradingParameters();
+                        break;
+
+                    case "Rating":
+                        RefreshRatingParameters();
+                        break;
+
+                    default:
+                        Debug.WriteLine($"[RefreshOptimizationParameters] Неизвестный тип стратегии: {_strategyType}");
+                        break;
                 }
 
-                var maParams = strategy.Parameters;
-                if (maParams == null)
-                {
-                    Debug.WriteLine("[RefreshOptimizationParameters] maParams is NULL!");
-                    return;
-                }
-
-                Debug.WriteLine($"[RefreshOptimizationParameters] Текущие параметры стратегии:");
-                Debug.WriteLine($"  PositionSizePercent = {maParams.PositionSizePercent}%");
-                Debug.WriteLine($"  StopLossATRMultiplier = {maParams.StopLossATRMultiplier}");
-                Debug.WriteLine($"  TakeProfitATRMultiplier = {maParams.TakeProfitATRMultiplier}");
-                Debug.WriteLine($"  TrailingStopATRMultiplier = {maParams.TrailingStopATRMultiplier}");
-                Debug.WriteLine($"  SmaPeriods = {maParams.SmaPeriods}");
-                Debug.WriteLine($"  EmaPeriods = {maParams.EmaPeriods}");
-                Debug.WriteLine($"  FilterSmaPeriod = {maParams.FilterSmaPeriod}");
-                Debug.WriteLine($"  UseManualFilterSma = {maParams.UseManualFilterSma}");
-
-                // ✅ ПАРСИМ ТЕКУЩИЕ ПЕРИОДЫ ИЗ СТРАТЕГИИ
-                var smaPeriods = ParsePeriodsSorted(maParams.SmaPeriods);
-                var emaPeriods = ParsePeriodsSorted(maParams.EmaPeriods);
-
-                // Если периодов меньше 3, используем значения по умолчанию
-                if (smaPeriods.Count < 3)
-                {
-                    smaPeriods = new List<int> { 20, 50, 100 };
-                    Debug.WriteLine("[RefreshOptimizationParameters] SMA периоды невалидны, используем значения по умолчанию");
-                }
-                if (emaPeriods.Count < 3)
-                {
-                    emaPeriods = new List<int> { 25, 50, 100 };
-                    Debug.WriteLine("[RefreshOptimizationParameters] EMA периоды невалидны, используем значения по умолчанию");
-                }
-
-                // ✅ Обновляем CurrentValue для каждого параметра в окне оптимизации
-                foreach (var param in Parameters)
-                {
-                    decimal newValue = 0;
-                    bool found = false;
-
-                    switch (param.Name)
-                    {
-                        // ✅ SMA ПЕРИОДЫ - обновляем и CurrentValue, и MinValue, и MaxValue
-                        case "SmaShort":
-                            if (smaPeriods.Count >= 1)
-                            {
-                                newValue = smaPeriods[0];
-                                param.CurrentValue = newValue;
-                                param.MinValue = Math.Max(5, newValue - 20);
-                                param.MaxValue = Math.Min(100, newValue + 20);
-                                param.Step = 5;
-                                found = true;
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
-                            }
-                            break;
-
-                        case "SmaMedium":
-                            if (smaPeriods.Count >= 2)
-                            {
-                                newValue = smaPeriods[1];
-                                param.CurrentValue = newValue;
-                                param.MinValue = Math.Max(10, newValue - 30);
-                                param.MaxValue = Math.Min(200, newValue + 30);
-                                param.Step = 10;
-                                found = true;
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
-                            }
-                            break;
-
-                        case "SmaLong":
-                            if (smaPeriods.Count >= 3)
-                            {
-                                newValue = smaPeriods[2];
-                                param.CurrentValue = newValue;
-                                param.MinValue = Math.Max(20, newValue - 50);
-                                param.MaxValue = Math.Min(500, newValue + 50);
-                                param.Step = 20;
-                                found = true;
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
-                            }
-                            break;
-
-                        // ✅ EMA ПЕРИОДЫ - обновляем и CurrentValue, и MinValue, и MaxValue
-                        case "EmaShort":
-                            if (emaPeriods.Count >= 1)
-                            {
-                                newValue = emaPeriods[0];
-                                param.CurrentValue = newValue;
-                                param.MinValue = Math.Max(5, newValue - 20);
-                                param.MaxValue = Math.Min(100, newValue + 20);
-                                param.Step = 5;
-                                found = true;
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
-                            }
-                            break;
-
-                        case "EmaMedium":
-                            if (emaPeriods.Count >= 2)
-                            {
-                                newValue = emaPeriods[1];
-                                param.CurrentValue = newValue;
-                                param.MinValue = Math.Max(10, newValue - 30);
-                                param.MaxValue = Math.Min(200, newValue + 30);
-                                param.Step = 10;
-                                found = true;
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
-                            }
-                            break;
-
-                        case "EmaLong":
-                            if (emaPeriods.Count >= 3)
-                            {
-                                newValue = emaPeriods[2];
-                                param.CurrentValue = newValue;
-                                param.MinValue = Math.Max(20, newValue - 50);
-                                param.MaxValue = Math.Min(300, newValue + 50);
-                                param.Step = 10;
-                                found = true;
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
-                            }
-                            break;
-
-                        // ✅ FILTER SMA - учитываем режим ручного/автоматического управления
-                        case "FilterSmaPeriod":
-                            // ✅ Берем значение из стратегии
-                            newValue = maParams.FilterSmaPeriod;
-                            param.CurrentValue = newValue;
-
-                            // ✅ Устанавливаем диапазон в зависимости от режима
-                            int filterMin;
-                            int filterMax;
-
-                            if (maParams.UseManualFilterSma)
-                            {
-                                // Ручной режим - узкий диапазон вокруг значения
-                                filterMin = Math.Max(1, (int)newValue - 20);
-                                filterMax = Math.Min(200, (int)newValue + 20);
-
-                                if (filterMax - filterMin < 10)
-                                {
-                                    filterMin = Math.Max(1, (int)newValue - 15);
-                                    filterMax = Math.Min(200, (int)newValue + 15);
-                                }
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Фильтр SMA: РУЧНОЙ режим, значение={newValue}");
-                            }
-                            else
-                            {
-                                // Автоматический режим - широкий диапазон
-                                filterMin = 10;
-                                filterMax = 200;
-                                Debug.WriteLine($"[RefreshOptimizationParameters] Фильтр SMA: АВТОМАТИЧЕСКИЙ режим, значение={newValue}");
-                            }
-
-                            param.MinValue = filterMin;
-                            param.MaxValue = filterMax;
-                            param.Step = 5;
-                            found = true;
-                            Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
-                            break;
-
-                        // ✅ ATR ПАРАМЕТРЫ - обновляем CurrentValue
-                        case "PositionSizePercent":
-                            newValue = maParams.PositionSizePercent;
-                            param.CurrentValue = newValue;
-                            found = true;
-                            Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue}");
-                            break;
-
-                        case "StopLossATRMultiplier":
-                            newValue = maParams.StopLossATRMultiplier;
-                            param.CurrentValue = newValue;
-                            found = true;
-                            Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue}");
-                            break;
-
-                        case "TakeProfitATRMultiplier":
-                            newValue = maParams.TakeProfitATRMultiplier;
-                            param.CurrentValue = newValue;
-                            found = true;
-                            Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue}");
-                            break;
-
-                        case "TrailingStopATRMultiplier":
-                            newValue = maParams.TrailingStopATRMultiplier;
-                            param.CurrentValue = newValue;
-                            found = true;
-                            Debug.WriteLine($"[RefreshOptimizationParameters] Обновлен {param.Name} = {newValue}");
-                            break;
-
-                        default:
-                            Debug.WriteLine($"[RefreshOptimizationParameters] Неизвестный параметр: {param.Name}");
-                            break;
-                    }
-
-                    // Если параметр не был найден и обработан - пропускаем
-                    if (!found && param.Name != "SmaShort" && param.Name != "SmaMedium" &&
-                        param.Name != "SmaLong" && param.Name != "EmaShort" &&
-                        param.Name != "EmaMedium" && param.Name != "EmaLong" &&
-                        param.Name != "FilterSmaPeriod")
-                    {
-                        Debug.WriteLine($"[RefreshOptimizationParameters] Параметр {param.Name} не был обновлен");
-                    }
-                }
+                // ============================================================
+                // 2. ОБЩИЕ ДЕЙСТВИЯ ДЛЯ ВСЕХ СТРАТЕГИЙ
+                // ============================================================
 
                 // ✅ Обновляем словарь оригинальных параметров для кнопки "Восстановить"
                 _originalParameters.Clear();
@@ -3489,7 +3481,7 @@ namespace MoneyGenerator_v5.ViewModels
                 OnPropertyChanged(nameof(Parameters));
                 RefreshCommands();
 
-                Debug.WriteLine("[RefreshOptimizationParameters] КОНЕЦ");
+                Debug.WriteLine($"[RefreshOptimizationParameters] КОНЕЦ. Обновлено параметров: {Parameters.Count}");
             }
             catch (Exception ex)
             {
@@ -3497,6 +3489,770 @@ namespace MoneyGenerator_v5.ViewModels
                 Debug.WriteLine($"[RefreshOptimizationParameters] StackTrace: {ex.StackTrace}");
             }
         }
+
+        #region Refresh Parameters для каждой стратегии
+
+        /// <summary>
+        /// Обновляет параметры MA стратегии
+        /// </summary>
+        private void RefreshMaParameters()
+        {
+            Debug.WriteLine("[RefreshMaParameters] НАЧАЛО");
+
+            var strategy = _strategyViewModel.MaStrategy;
+            if (strategy == null)
+            {
+                Debug.WriteLine("[RefreshMaParameters] strategy is NULL!");
+                return;
+            }
+
+            var maParams = strategy.Parameters;
+            if (maParams == null)
+            {
+                Debug.WriteLine("[RefreshMaParameters] maParams is NULL!");
+                return;
+            }
+
+            Debug.WriteLine($"[RefreshMaParameters] Текущие параметры стратегии:");
+            Debug.WriteLine($"  PositionSizePercent = {maParams.PositionSizePercent}%");
+            Debug.WriteLine($"  StopLossATRMultiplier = {maParams.StopLossATRMultiplier}");
+            Debug.WriteLine($"  TakeProfitATRMultiplier = {maParams.TakeProfitATRMultiplier}");
+            Debug.WriteLine($"  TrailingStopATRMultiplier = {maParams.TrailingStopATRMultiplier}");
+            Debug.WriteLine($"  SmaPeriods = {maParams.SmaPeriods}");
+            Debug.WriteLine($"  EmaPeriods = {maParams.EmaPeriods}");
+            Debug.WriteLine($"  FilterSmaPeriod = {maParams.FilterSmaPeriod}");
+            Debug.WriteLine($"  UseManualFilterSma = {maParams.UseManualFilterSma}");
+
+            // ✅ ПАРСИМ ТЕКУЩИЕ ПЕРИОДЫ ИЗ СТРАТЕГИИ
+            var smaPeriods = ParsePeriodsSorted(maParams.SmaPeriods);
+            var emaPeriods = ParsePeriodsSorted(maParams.EmaPeriods);
+
+            // Если периодов меньше 3, используем значения по умолчанию
+            if (smaPeriods.Count < 3)
+            {
+                smaPeriods = new List<int> { 20, 50, 100 };
+                Debug.WriteLine("[RefreshMaParameters] SMA периоды невалидны, используем значения по умолчанию");
+            }
+            if (emaPeriods.Count < 3)
+            {
+                emaPeriods = new List<int> { 25, 50, 100 };
+                Debug.WriteLine("[RefreshMaParameters] EMA периоды невалидны, используем значения по умолчанию");
+            }
+
+            // ✅ Обновляем CurrentValue для каждого параметра
+            foreach (var param in Parameters)
+            {
+                decimal newValue = 0;
+                bool found = false;
+
+                switch (param.Name)
+                {
+                    // SMA ПЕРИОДЫ
+                    case "SmaShort":
+                        if (smaPeriods.Count >= 1)
+                        {
+                            newValue = smaPeriods[0];
+                            param.CurrentValue = newValue;
+                            param.MinValue = Math.Max(5, newValue - 20);
+                            param.MaxValue = Math.Min(100, newValue + 20);
+                            param.Step = 5;
+                            found = true;
+                            Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        }
+                        break;
+
+                    case "SmaMedium":
+                        if (smaPeriods.Count >= 2)
+                        {
+                            newValue = smaPeriods[1];
+                            param.CurrentValue = newValue;
+                            param.MinValue = Math.Max(10, newValue - 30);
+                            param.MaxValue = Math.Min(200, newValue + 30);
+                            param.Step = 10;
+                            found = true;
+                            Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        }
+                        break;
+
+                    case "SmaLong":
+                        if (smaPeriods.Count >= 3)
+                        {
+                            newValue = smaPeriods[2];
+                            param.CurrentValue = newValue;
+                            param.MinValue = Math.Max(20, newValue - 50);
+                            param.MaxValue = Math.Min(500, newValue + 50);
+                            param.Step = 20;
+                            found = true;
+                            Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        }
+                        break;
+
+                    // EMA ПЕРИОДЫ
+                    case "EmaShort":
+                        if (emaPeriods.Count >= 1)
+                        {
+                            newValue = emaPeriods[0];
+                            param.CurrentValue = newValue;
+                            param.MinValue = Math.Max(5, newValue - 20);
+                            param.MaxValue = Math.Min(100, newValue + 20);
+                            param.Step = 5;
+                            found = true;
+                            Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        }
+                        break;
+
+                    case "EmaMedium":
+                        if (emaPeriods.Count >= 2)
+                        {
+                            newValue = emaPeriods[1];
+                            param.CurrentValue = newValue;
+                            param.MinValue = Math.Max(10, newValue - 30);
+                            param.MaxValue = Math.Min(200, newValue + 30);
+                            param.Step = 10;
+                            found = true;
+                            Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        }
+                        break;
+
+                    case "EmaLong":
+                        if (emaPeriods.Count >= 3)
+                        {
+                            newValue = emaPeriods[2];
+                            param.CurrentValue = newValue;
+                            param.MinValue = Math.Max(20, newValue - 50);
+                            param.MaxValue = Math.Min(300, newValue + 50);
+                            param.Step = 10;
+                            found = true;
+                            Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        }
+                        break;
+
+                    // FILTER SMA
+                    case "FilterSmaPeriod":
+                        newValue = maParams.FilterSmaPeriod;
+                        param.CurrentValue = newValue;
+
+                        int filterMin;
+                        int filterMax;
+
+                        if (maParams.UseManualFilterSma)
+                        {
+                            filterMin = Math.Max(1, (int)newValue - 20);
+                            filterMax = Math.Min(200, (int)newValue + 20);
+
+                            if (filterMax - filterMin < 10)
+                            {
+                                filterMin = Math.Max(1, (int)newValue - 15);
+                                filterMax = Math.Min(200, (int)newValue + 15);
+                            }
+                            Debug.WriteLine($"[RefreshMaParameters] Фильтр SMA: РУЧНОЙ режим, значение={newValue}");
+                        }
+                        else
+                        {
+                            filterMin = 10;
+                            filterMax = 200;
+                            Debug.WriteLine($"[RefreshMaParameters] Фильтр SMA: АВТОМАТИЧЕСКИЙ режим, значение={newValue}");
+                        }
+
+                        param.MinValue = filterMin;
+                        param.MaxValue = filterMax;
+                        param.Step = 5;
+                        found = true;
+                        Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    // ATR ПАРАМЕТРЫ
+                    case "PositionSizePercent":
+                        newValue = maParams.PositionSizePercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StopLossATRMultiplier":
+                        newValue = maParams.StopLossATRMultiplier;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TakeProfitATRMultiplier":
+                        newValue = maParams.TakeProfitATRMultiplier;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TrailingStopATRMultiplier":
+                        newValue = maParams.TrailingStopATRMultiplier;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshMaParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    default:
+                        Debug.WriteLine($"[RefreshMaParameters] Неизвестный параметр: {param.Name}");
+                        break;
+                }
+
+                if (!found)
+                {
+                    Debug.WriteLine($"[RefreshMaParameters] Параметр {param.Name} не был обновлен");
+                }
+            }
+
+            Debug.WriteLine("[RefreshMaParameters] КОНЕЦ");
+        }
+
+        /// <summary>
+        /// Обновляет параметры RSI стратегии
+        /// </summary>
+        private void RefreshRsiParameters()
+        {
+            Debug.WriteLine("[RefreshRsiParameters] НАЧАЛО");
+
+            var strategy = _strategyViewModel.RsiStrategy;
+            if (strategy == null)
+            {
+                Debug.WriteLine("[RefreshRsiParameters] strategy is NULL!");
+                return;
+            }
+
+            var rsiParams = strategy.Parameters;
+            if (rsiParams == null)
+            {
+                Debug.WriteLine("[RefreshRsiParameters] rsiParams is NULL!");
+                return;
+            }
+
+            Debug.WriteLine($"[RefreshRsiParameters] Текущие параметры стратегии:");
+            Debug.WriteLine($"  OscillatorType = {rsiParams.OscillatorType}");
+            Debug.WriteLine($"  RsiPeriod = {rsiParams.RsiPeriod}");
+            Debug.WriteLine($"  RsiOverbought = {rsiParams.RsiOverbought}");
+            Debug.WriteLine($"  RsiOversold = {rsiParams.RsiOversold}");
+            Debug.WriteLine($"  StochPeriod = {rsiParams.StochPeriod}");
+            Debug.WriteLine($"  StochOverbought = {rsiParams.StochOverbought}");
+            Debug.WriteLine($"  StochOversold = {rsiParams.StochOversold}");
+            Debug.WriteLine($"  EntryOrderType = {rsiParams.EntryOrderType}");
+            Debug.WriteLine($"  ExitOrderType = {rsiParams.ExitOrderType}");
+
+            // ✅ Обновляем CurrentValue для каждого параметра
+            foreach (var param in Parameters)
+            {
+                decimal newValue = 0;
+                bool found = false;
+
+                switch (param.Name)
+                {
+                    // Базовые параметры RSI
+                    case "RsiPeriod":
+                        newValue = rsiParams.RsiPeriod;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "RsiOverbought":
+                        newValue = rsiParams.RsiOverbought;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "RsiOversold":
+                        newValue = rsiParams.RsiOversold;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Параметры Stochastic
+                    case "StochPeriod":
+                        newValue = rsiParams.StochPeriod;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StochOverbought":
+                        newValue = rsiParams.StochOverbought;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StochOversold":
+                        newValue = rsiParams.StochOversold;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StochSmoothK":
+                        newValue = rsiParams.StochSmoothK;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StochSmoothD":
+                        newValue = rsiParams.StochSmoothD;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Параметры входа
+                    case "EntryOrderType":
+                        newValue = (int)rsiParams.EntryOrderType;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "EntryLimitOffsetPercent":
+                        newValue = rsiParams.EntryLimitOffsetPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "EntryStopOffsetPercent":
+                        newValue = rsiParams.EntryStopOffsetPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "EntrySlippage":
+                        newValue = rsiParams.EntrySlippage;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Параметры выхода
+                    case "ExitOrderType":
+                        newValue = (int)rsiParams.ExitOrderType;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "ExitSlippage":
+                        newValue = rsiParams.ExitSlippage;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "CloseOnSignalReversal":
+                        newValue = rsiParams.CloseOnSignalReversal ? 1 : 0;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Moving Take Profit Entry
+                    case "MovingTPEntryCalculationType":
+                        newValue = (int)rsiParams.MovingTPEntryCalculationType;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "MovingTPEntryTargetPercent":
+                        newValue = rsiParams.MovingTPEntryTargetPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "MovingTPEntrySlippage":
+                        newValue = rsiParams.MovingTPEntrySlippage;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "MovingTPEntryTimeoutMinutes":
+                        newValue = rsiParams.MovingTPEntryTimeoutMinutes;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Moving Take Profit Exit
+                    case "MovingTPExitCalculationType":
+                        newValue = (int)rsiParams.MovingTPExitCalculationType;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "MovingTPExitStartPercent":
+                        newValue = rsiParams.MovingTPExitStartPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "MovingTPExitSlippage":
+                        newValue = rsiParams.MovingTPExitSlippage;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "MovingTPExitTimeoutMinutes":
+                        newValue = rsiParams.MovingTPExitTimeoutMinutes;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Trailing Stop Exit
+                    case "TrailingStopExitCalculationType":
+                        newValue = (int)rsiParams.TrailingStopExitCalculationType;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TrailingStopExitDistancePercent":
+                        newValue = rsiParams.TrailingStopExitDistancePercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TrailingStopExitSlippage":
+                        newValue = rsiParams.TrailingStopExitSlippage;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TrailingStopExitActivationPercent":
+                        newValue = rsiParams.TrailingStopExitActivationPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "ProtectiveStopPercent":
+                        newValue = rsiParams.ProtectiveStopPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Take Profit / Stop Loss
+                    case "TakeProfitCalculationType":
+                        newValue = (int)rsiParams.TakeProfitCalculationType;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TakeProfitPercent":
+                        newValue = rsiParams.TakeProfitPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TakeProfitActivationPrice":
+                        newValue = rsiParams.TakeProfitActivationPrice;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TakeProfitSlippage":
+                        newValue = rsiParams.TakeProfitSlippage;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StopLossCalculationType":
+                        newValue = (int)rsiParams.StopLossCalculationType;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StopLossPercent":
+                        newValue = rsiParams.StopLossPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StopLossActivationPrice":
+                        newValue = rsiParams.StopLossActivationPrice;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StopLossSlippage":
+                        newValue = rsiParams.StopLossSlippage;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Общие параметры
+                    case "AtrMultiplier":
+                        newValue = rsiParams.AtrMultiplier;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "OrderSizePercent":
+                        newValue = rsiParams.OrderSizePercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // Level Crossing параметры
+                    case "LevelCrossingEntryProtectiveStopPercent":
+                        newValue = rsiParams.LevelCrossingEntryProtectiveStopPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "LevelCrossingEntryProtectiveStopDistancePercent":
+                        newValue = rsiParams.LevelCrossingEntryProtectiveStopDistancePercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "LevelCrossingExitProtectiveStopPercent":
+                        newValue = rsiParams.LevelCrossingExitProtectiveStopPercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "LevelCrossingExitProtectiveStopDistancePercent":
+                        newValue = rsiParams.LevelCrossingExitProtectiveStopDistancePercent;
+                        param.CurrentValue = newValue;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    default:
+                        Debug.WriteLine($"[RefreshRsiParameters] Неизвестный параметр: {param.Name}");
+                        break;
+                }
+
+                if (!found)
+                {
+                    Debug.WriteLine($"[RefreshRsiParameters] Параметр {param.Name} не был обновлен");
+                }
+            }
+
+            Debug.WriteLine("[RefreshRsiParameters] КОНЕЦ");
+        }
+
+        /// <summary>
+        /// Обновляет параметры PairsTrading стратегии
+        /// </summary>
+        private void RefreshPairsTradingParameters()
+        {
+            Debug.WriteLine("[RefreshPairsTradingParameters] НАЧАЛО");
+
+            var strategy = _strategyViewModel.PairsStrategy;
+            if (strategy == null)
+            {
+                Debug.WriteLine("[RefreshPairsTradingParameters] strategy is NULL!");
+                return;
+            }
+
+            var pairsParams = strategy.Parameters;
+            if (pairsParams == null)
+            {
+                Debug.WriteLine("[RefreshPairsTradingParameters] pairsParams is NULL!");
+                return;
+            }
+
+            Debug.WriteLine($"[RefreshPairsTradingParameters] Текущие параметры стратегии:");
+            Debug.WriteLine($"  LookbackPeriod = {pairsParams.LookbackPeriod}");
+            Debug.WriteLine($"  EntryZScore = {pairsParams.EntryZScore}");
+            Debug.WriteLine($"  ExitZScore = {pairsParams.ExitZScore}");
+            Debug.WriteLine($"  StopLossZScore = {pairsParams.StopLossZScore}");
+            Debug.WriteLine($"  PositionSizePercent = {pairsParams.PositionSizePercent}");
+
+            // ✅ Обновляем CurrentValue для каждого параметра
+            foreach (var param in Parameters)
+            {
+                decimal newValue = 0;
+                bool found = false;
+
+                switch (param.Name)
+                {
+                    case "LookbackPeriod":
+                        newValue = pairsParams.LookbackPeriod;
+                        param.CurrentValue = newValue;
+                        // Обновляем диапазон вокруг текущего значения
+                        param.MinValue = Math.Max(24, newValue - 50);
+                        param.MaxValue = Math.Min(500, newValue + 50);
+                        param.Step = 24;
+                        found = true;
+                        Debug.WriteLine($"[RefreshPairsTradingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    case "EntryZScore":
+                        newValue = pairsParams.EntryZScore;
+                        param.CurrentValue = newValue;
+                        param.MinValue = Math.Max(0.5m, newValue - 0.5m);
+                        param.MaxValue = Math.Min(4.0m, newValue + 0.5m);
+                        param.Step = 0.25m;
+                        found = true;
+                        Debug.WriteLine($"[RefreshPairsTradingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    case "ExitZScore":
+                        newValue = pairsParams.ExitZScore;
+                        param.CurrentValue = newValue;
+                        param.MinValue = Math.Max(0.1m, newValue - 0.3m);
+                        param.MaxValue = Math.Min(1.5m, newValue + 0.3m);
+                        param.Step = 0.1m;
+                        found = true;
+                        Debug.WriteLine($"[RefreshPairsTradingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    case "StopLossZScore":
+                        newValue = pairsParams.StopLossZScore;
+                        param.CurrentValue = newValue;
+                        param.MinValue = Math.Max(2.0m, newValue - 0.5m);
+                        param.MaxValue = Math.Min(5.0m, newValue + 0.5m);
+                        param.Step = 0.25m;
+                        found = true;
+                        Debug.WriteLine($"[RefreshPairsTradingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    case "PositionSizePercent":
+                        newValue = pairsParams.PositionSizePercent;
+                        param.CurrentValue = newValue;
+                        param.MinValue = Math.Max(1, newValue - 10);
+                        param.MaxValue = Math.Min(50, newValue + 10);
+                        param.Step = 1;
+                        found = true;
+                        Debug.WriteLine($"[RefreshPairsTradingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    default:
+                        Debug.WriteLine($"[RefreshPairsTradingParameters] Неизвестный параметр: {param.Name}");
+                        break;
+                }
+
+                if (!found)
+                {
+                    Debug.WriteLine($"[RefreshPairsTradingParameters] Параметр {param.Name} не был обновлен");
+                }
+            }
+
+            Debug.WriteLine("[RefreshPairsTradingParameters] КОНЕЦ");
+        }
+
+        /// <summary>
+        /// Обновляет параметры Rating стратегии
+        /// </summary>
+        private void RefreshRatingParameters()
+        {
+            Debug.WriteLine("[RefreshRatingParameters] НАЧАЛО");
+
+            var strategy = _strategyViewModel.RatingStrategy;
+            if (strategy == null)
+            {
+                Debug.WriteLine("[RefreshRatingParameters] strategy is NULL!");
+                return;
+            }
+
+            var ratingParams = strategy.Parameters;
+            if (ratingParams == null)
+            {
+                Debug.WriteLine("[RefreshRatingParameters] ratingParams is NULL!");
+                return;
+            }
+
+            Debug.WriteLine($"[RefreshRatingParameters] Текущие параметры стратегии:");
+            Debug.WriteLine($"  EntryThreshold = {ratingParams.EntryThreshold}");
+            Debug.WriteLine($"  MatchTolerance = {ratingParams.MatchTolerance}");
+            Debug.WriteLine($"  MinMatchPercentage = {ratingParams.MinMatchPercentage}");
+            Debug.WriteLine($"  PositionSizePercent = {ratingParams.PositionSizePercent}");
+
+            // ✅ Обновляем CurrentValue для каждого параметра
+            foreach (var param in Parameters)
+            {
+                decimal newValue = 0;
+                bool found = false;
+
+                switch (param.Name)
+                {
+                    case "EntryThreshold":
+                        newValue = ratingParams.EntryThreshold;
+                        param.CurrentValue = newValue;
+                        param.MinValue = Math.Max(50, newValue - 10);
+                        param.MaxValue = Math.Min(100, newValue + 10);
+                        param.Step = 1;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRatingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    case "MatchTolerance":
+                        newValue = ratingParams.MatchTolerance;
+                        param.CurrentValue = newValue;
+                        param.MinValue = Math.Max(0.05m, newValue - 0.1m);
+                        param.MaxValue = Math.Min(1.0m, newValue + 0.1m);
+                        param.Step = 0.05m;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRatingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    case "MinMatchPercentage":
+                        newValue = ratingParams.MinMatchPercentage;
+                        param.CurrentValue = newValue;
+                        param.MinValue = Math.Max(50, newValue - 10);
+                        param.MaxValue = Math.Min(100, newValue + 10);
+                        param.Step = 1;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRatingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    case "PositionSizePercent":
+                        newValue = ratingParams.PositionSizePercent;
+                        param.CurrentValue = newValue;
+                        param.MinValue = Math.Max(1, newValue - 10);
+                        param.MaxValue = Math.Min(50, newValue + 10);
+                        param.Step = 1;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRatingParameters] Обновлен {param.Name} = {newValue} (диапазон: {param.MinValue}..{param.MaxValue})");
+                        break;
+
+                    default:
+                        Debug.WriteLine($"[RefreshRatingParameters] Неизвестный параметр: {param.Name}");
+                        break;
+                }
+
+                if (!found)
+                {
+                    Debug.WriteLine($"[RefreshRatingParameters] Параметр {param.Name} не был обновлен");
+                }
+            }
+
+            Debug.WriteLine("[RefreshRatingParameters] КОНЕЦ");
+        }
+
+        #endregion
 
 
         private void ApplyParametersToStrategy(Dictionary<string, decimal> paramSet)
