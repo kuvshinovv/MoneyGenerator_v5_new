@@ -257,7 +257,7 @@ namespace MoneyGenerator_v5.ViewModels
                     break;
                 case "MA":
                     Debug.WriteLine("[InitializeOptimizationParameters] Добавление параметров MA");
-                    AddMaOptimizationParameters(); // ✅ ИСПОЛЬЗУЕМ НОВЫЙ МЕТОД
+                    AddMaOptimizationParameters(); 
                     break;
                 case "Rating":
                     Debug.WriteLine("[InitializeOptimizationParameters] Добавление параметров Rating");
@@ -305,6 +305,7 @@ namespace MoneyGenerator_v5.ViewModels
         /// <summary>
         /// Добавляет параметры для оптимизации RSI стратегии
         /// ВЫВОДИТ ТОЛЬКО ТЕ ПАРАМЕТРЫ, КОТОРЫЕ РЕАЛЬНО ИСПОЛЬЗУЮТСЯ В СТРАТЕГИИ
+        /// НАЗВАНИЯ ПАРАМЕТРОВ СОВПАДАЮТ С НАЗВАНИЯМИ В СТРАТЕГИИ
         /// </summary>
         private void AddRsiParameters()
         {
@@ -327,10 +328,13 @@ namespace MoneyGenerator_v5.ViewModels
             // 1. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА - ТОЛЬКО ВЫБРАННЫЙ ТИП
             // ============================================================
 
-            // ✅ Параметры ВЫБРАННОГО осциллятора
+            
+
+            // ✅ Параметры ВЫБРАННОГО осциллятора (названия как в стратегии)
             if (rsiParams.OscillatorType == OscillatorType.StochRSI)
             {
                 Debug.WriteLine("[AddRsiParameters] Добавление параметров StochRSI");
+                // Для StochRSI используем те же названия, что и в стратегии
                 //AddParameter("StochPeriod", "Период StochRSI", rsiParams.StochPeriod, 5, 50, 1);
                 //AddParameter("StochOverbought", "Перекупленность StochRSI", rsiParams.StochOverbought, 60, 90, 1);
                 //AddParameter("StochOversold", "Перепроданность StochRSI", rsiParams.StochOversold, 10, 40, 1);
@@ -356,11 +360,11 @@ namespace MoneyGenerator_v5.ViewModels
             // 2. ПАРАМЕТРЫ ВХОДА - ТОЛЬКО ВЫБРАННЫЙ ТИП
             // ============================================================
 
-            // Размер позиции - всегда нужен
-            AddParameter("OrderSizePercent", "Размер позиции (%)", rsiParams.OrderSizePercent, 1, 50, 1);
+            // Размер позиции - всегда нужен (название как в стратегии)
+            //AddParameter("OrderSizePercent", "Размер позиции (% от депозита)", rsiParams.OrderSizePercent, 1, 50, 1);
 
-            // Проскальзывание входа - всегда нужно
-            AddParameter("EntrySlippage", "Проскальзывание входа (%)", rsiParams.EntrySlippage, 0, 1, 0.01m);
+            // Проскальзывание входа - всегда нужно (название как в стратегии)
+            //AddParameter("EntrySlippage", "Проскальзывание входа (%)", rsiParams.EntrySlippage, 0, 1, 0.01m);
 
             // ✅ Параметры в зависимости от типа входа
             switch (rsiParams.EntryOrderType)
@@ -383,8 +387,8 @@ namespace MoneyGenerator_v5.ViewModels
                     Debug.WriteLine("[AddRsiParameters] Тип входа: MovingTakeProfitEntry");
                     AddParameter("MovingTPEntryCalculationType", "Расчет TP входа", (int)rsiParams.MovingTPEntryCalculationType, 0, 2, 1);
                     AddParameter("MovingTPEntryTargetPercent", "Цель TP входа (%)", rsiParams.MovingTPEntryTargetPercent, 0.1m, 10, 0.1m);
-                    AddParameter("MovingTPEntrySlippage", "Проскальзывание TP входа", rsiParams.MovingTPEntrySlippage, 0, 1, 0.01m);
-                    AddParameter("MovingTPEntryTimeoutMinutes", "Таймаут TP входа (мин)", rsiParams.MovingTPEntryTimeoutMinutes, 1, 1440, 5);
+                    //AddParameter("MovingTPEntrySlippage", "Проскальзывание TP входа", rsiParams.MovingTPEntrySlippage, 0, 1, 0.01m);
+                    //AddParameter("MovingTPEntryTimeoutMinutes", "Таймаут TP входа (мин)", rsiParams.MovingTPEntryTimeoutMinutes, 1, 1440, 5);
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.LevelCrossingEntry:
@@ -402,40 +406,40 @@ namespace MoneyGenerator_v5.ViewModels
             // 3. ПАРАМЕТРЫ ВЫХОДА - ТОЛЬКО ВЫБРАННЫЙ ТИП
             // ============================================================
 
-            // Проскальзывание выхода - всегда нужно
+            // Проскальзывание выхода - всегда нужно (название как в стратегии)
             AddParameter("ExitSlippage", "Проскальзывание выхода (%)", rsiParams.ExitSlippage, 0, 1, 0.01m);
 
-            // Закрытие при смене сигнала - всегда доступно
-            AddParameter("CloseOnSignalReversal", "Закрытие при смене сигнала", rsiParams.CloseOnSignalReversal ? 1 : 0, 0, 1, 1);
+            // Закрытие при смене сигнала - всегда доступно (название как в стратегии)
+            AddParameter("CloseOnSignalReversal", "Закрывать при смене сигнала", rsiParams.CloseOnSignalReversal ? 1 : 0, 0, 1, 1);
 
             // ✅ Параметры в зависимости от типа выхода
             switch (rsiParams.ExitOrderType)
             {
                 case MoneyGenerator_v5.Strategies.OrderType.Market:
-                    Debug.WriteLine("[AddRsiParameters] Тип выхода: Market");
-                    AddParameter("TakeProfitCalculationType", "Расчет тейк-профита", (int)rsiParams.TakeProfitCalculationType, 0, 2, 1);
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: Market - дополнительные параметры не требуются");
+                    /*AddParameter("TakeProfitCalculationType", "Расчет тейк-профита", (int)rsiParams.TakeProfitCalculationType, 0, 2, 1);
                     AddParameter("TakeProfitPercent", "Тейк-профит (%)", rsiParams.TakeProfitPercent, 0.1m, 10, 0.1m);
                     AddParameter("TakeProfitActivationPrice", "Цена активации TP", rsiParams.TakeProfitActivationPrice, 0, 100, 0.1m);
                     AddParameter("TakeProfitSlippage", "Проскальзывание TP", rsiParams.TakeProfitSlippage, 0, 1, 0.01m);
                     AddParameter("StopLossCalculationType", "Расчет стоп-лосса", (int)rsiParams.StopLossCalculationType, 0, 2, 1);
                     AddParameter("StopLossPercent", "Стоп-лосс (%)", rsiParams.StopLossPercent, 0.1m, 5, 0.1m);
                     AddParameter("StopLossActivationPrice", "Цена активации SL", rsiParams.StopLossActivationPrice, 0, 100, 0.1m);
-                    AddParameter("StopLossSlippage", "Проскальзывание SL", rsiParams.StopLossSlippage, 0, 1, 0.01m);
+                    AddParameter("StopLossSlippage", "Проскальзывание SL", rsiParams.StopLossSlippage, 0, 1, 0.01m);*/
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitExit:
                     Debug.WriteLine("[AddRsiParameters] Тип выхода: MovingTakeProfitExit");
                     AddParameter("MovingTPExitCalculationType", "Расчет TP выхода", (int)rsiParams.MovingTPExitCalculationType, 0, 2, 1);
                     AddParameter("MovingTPExitStartPercent", "Стартовый TP выхода (%)", rsiParams.MovingTPExitStartPercent, 0.1m, 10, 0.1m);
-                    AddParameter("MovingTPExitSlippage", "Проскальзывание TP выхода", rsiParams.MovingTPExitSlippage, 0, 1, 0.01m);
-                    AddParameter("MovingTPExitTimeoutMinutes", "Таймаут TP выхода (мин)", rsiParams.MovingTPExitTimeoutMinutes, 1, 1440, 5);
+                    //AddParameter("MovingTPExitSlippage", "Проскальзывание TP выхода", rsiParams.MovingTPExitSlippage, 0, 1, 0.01m);
+                    //AddParameter("MovingTPExitTimeoutMinutes", "Таймаут TP выхода (мин)", rsiParams.MovingTPExitTimeoutMinutes, 1, 1440, 5);
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.TrailingStopExit:
                     Debug.WriteLine("[AddRsiParameters] Тип выхода: TrailingStopExit");
                     AddParameter("TrailingStopExitCalculationType", "Расчет трейлинг-стопа", (int)rsiParams.TrailingStopExitCalculationType, 0, 2, 1);
                     AddParameter("TrailingStopExitDistancePercent", "Дистанция трейлинг-стопа (%)", rsiParams.TrailingStopExitDistancePercent, 0.1m, 5, 0.1m);
-                    AddParameter("TrailingStopExitSlippage", "Проскальзывание трейлинг-стопа", rsiParams.TrailingStopExitSlippage, 0, 1, 0.01m);
+                    //AddParameter("TrailingStopExitSlippage", "Проскальзывание трейлинг-стопа", rsiParams.TrailingStopExitSlippage, 0, 1, 0.01m);
                     AddParameter("TrailingStopExitActivationPercent", "Активация трейлинг-стопа (%)", rsiParams.TrailingStopExitActivationPercent, 0.1m, 10, 0.1m);
                     AddParameter("ProtectiveStopPercent", "Защитный стоп (%)", rsiParams.ProtectiveStopPercent, 0.1m, 5, 0.1m);
                     break;
@@ -496,8 +500,8 @@ namespace MoneyGenerator_v5.ViewModels
 
             if (usesAtr)
             {
-                Debug.WriteLine("[AddRsiParameters] Добавление ATR (используется в настройках)");
-                AddParameter("AtrMultiplier", "Множитель ATR", rsiParams.AtrMultiplier, 0.5m, 5, 0.25m);
+                //Debug.WriteLine("[AddRsiParameters] Добавление ATR (используется в настройках)");
+                //AddParameter("AtrMultiplier", "Множитель ATR", rsiParams.AtrMultiplier, 0.5m, 5, 0.25m);
             }
 
             Debug.WriteLine($"[AddRsiParameters] КОНЕЦ. Добавлено параметров: {Parameters.Count}");
@@ -627,8 +631,8 @@ namespace MoneyGenerator_v5.ViewModels
             AddParameter("EmaLong", "EMA длинный", emaLong, 20, 300, 10);
 
             // Размер позиции
-            AddParameter("PositionSizePercent", "Размер позиции (%)",
-                maParams.PositionSizePercent, 1, 50, 1);
+            //AddParameter("PositionSizePercent", "Размер позиции (%)",
+                //maParams.PositionSizePercent, 1, 50, 1);
 
             // ATR параметры
             AddParameter("StopLossATRMultiplier", "Стоп-лосс (ATR множитель)",
@@ -4272,7 +4276,7 @@ namespace MoneyGenerator_v5.ViewModels
                     break;
                 case "MA":
                     Debug.WriteLine("[ApplyParametersToStrategy] Применение MA");
-                    ApplyMaOptimizationParametersToReal(paramSet); // ✅ НОВЫЙ МЕТОД
+                    ApplyMaOptimizationParametersToReal(paramSet); 
                     break;
                 case "Rating":
                     Debug.WriteLine("[ApplyParametersToStrategy] Применение Rating");
@@ -4318,6 +4322,10 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine("[ApplyPairsTradingParametersToReal] КОНЕЦ");
         }
 
+        /// <summary>
+        /// Применяет параметры оптимизации к реальной RSI стратегии
+        /// УЧИТЫВАЕТ ВСЕ ТИПЫ ВХОДА И ВЫХОДА
+        /// </summary>
         private void ApplyRsiParametersToReal(Dictionary<string, decimal> paramSet)
         {
             Debug.WriteLine("[ApplyRsiParametersToReal] НАЧАЛО");
@@ -4330,20 +4338,129 @@ namespace MoneyGenerator_v5.ViewModels
 
             var p = strategy.Parameters;
 
+            // ============================================================
+            // 1. БАЗОВЫЕ ПАРАМЕТРЫ RSI - всегда сохраняются
+            // ============================================================
             if (paramSet.TryGetValue("RsiPeriod", out var period))
                 p.RsiPeriod = (int)period;
             if (paramSet.TryGetValue("RsiOverbought", out var overbought))
                 p.RsiOverbought = overbought;
             if (paramSet.TryGetValue("RsiOversold", out var oversold))
                 p.RsiOversold = oversold;
+
+            // ============================================================
+            // 2. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА
+            // ============================================================
+            if (paramSet.TryGetValue("StochPeriod", out var stochPeriod))
+                p.StochPeriod = (int)stochPeriod;
+            if (paramSet.TryGetValue("StochOverbought", out var stochOverbought))
+                p.StochOverbought = stochOverbought;
+            if (paramSet.TryGetValue("StochOversold", out var stochOversold))
+                p.StochOversold = stochOversold;
+            if (paramSet.TryGetValue("StochSmoothK", out var smoothK))
+                p.StochSmoothK = (int)smoothK;
+            if (paramSet.TryGetValue("StochSmoothD", out var smoothD))
+                p.StochSmoothD = (int)smoothD;
+
+            // ============================================================
+            // 3. ПАРАМЕТРЫ ВХОДА - в зависимости от типа
+            // ============================================================
+            if (paramSet.TryGetValue("EntryOrderType", out var entryOrderType))
+                p.EntryOrderType = (MoneyGenerator_v5.Strategies.OrderType)(int)entryOrderType;
+
+            // Параметры для конкретных типов входа
+            if (paramSet.TryGetValue("EntryLimitOffsetPercent", out var limitOffset))
+                p.EntryLimitOffsetPercent = limitOffset;
+            if (paramSet.TryGetValue("EntryStopOffsetPercent", out var stopOffset))
+                p.EntryStopOffsetPercent = stopOffset;
+            if (paramSet.TryGetValue("EntrySlippage", out var entrySlippage))
+                p.EntrySlippage = entrySlippage;
+
+            // Moving Take Profit Entry
+            if (paramSet.TryGetValue("MovingTPEntryCalculationType", out var tpEntryCalc))
+                p.MovingTPEntryCalculationType = (PriceCalculationType)(int)tpEntryCalc;
+            if (paramSet.TryGetValue("MovingTPEntryTargetPercent", out var tpEntryTarget))
+                p.MovingTPEntryTargetPercent = tpEntryTarget;
+            if (paramSet.TryGetValue("MovingTPEntrySlippage", out var tpEntrySlippage))
+                p.MovingTPEntrySlippage = tpEntrySlippage;
+            if (paramSet.TryGetValue("MovingTPEntryTimeoutMinutes", out var tpEntryTimeout))
+                p.MovingTPEntryTimeoutMinutes = (int)tpEntryTimeout;
+
+            // Level Crossing Entry
+            if (paramSet.TryGetValue("LevelCrossingEntryProtectiveStopPercent", out var entryProtStop))
+                p.LevelCrossingEntryProtectiveStopPercent = entryProtStop;
+            if (paramSet.TryGetValue("LevelCrossingEntryProtectiveStopDistancePercent", out var entryProtStopDist))
+                p.LevelCrossingEntryProtectiveStopDistancePercent = entryProtStopDist;
+
+            // ============================================================
+            // 4. ПАРАМЕТРЫ ВЫХОДА - в зависимости от типа
+            // ============================================================
+            if (paramSet.TryGetValue("ExitOrderType", out var exitOrderType))
+                p.ExitOrderType = (MoneyGenerator_v5.Strategies.OrderType)(int)exitOrderType;
+            if (paramSet.TryGetValue("ExitSlippage", out var exitSlippage))
+                p.ExitSlippage = exitSlippage;
+            if (paramSet.TryGetValue("CloseOnSignalReversal", out var closeOnSignal))
+                p.CloseOnSignalReversal = (int)closeOnSignal == 1;
+
+            // Moving Take Profit Exit
+            if (paramSet.TryGetValue("MovingTPExitCalculationType", out var tpExitCalc))
+                p.MovingTPExitCalculationType = (PriceCalculationType)(int)tpExitCalc;
+            if (paramSet.TryGetValue("MovingTPExitStartPercent", out var tpExitStart))
+                p.MovingTPExitStartPercent = tpExitStart;
+            if (paramSet.TryGetValue("MovingTPExitSlippage", out var tpExitSlippage))
+                p.MovingTPExitSlippage = tpExitSlippage;
+            if (paramSet.TryGetValue("MovingTPExitTimeoutMinutes", out var tpExitTimeout))
+                p.MovingTPExitTimeoutMinutes = (int)tpExitTimeout;
+
+            // Trailing Stop Exit
+            if (paramSet.TryGetValue("TrailingStopExitCalculationType", out var tsCalc))
+                p.TrailingStopExitCalculationType = (PriceCalculationType)(int)tsCalc;
+            if (paramSet.TryGetValue("TrailingStopExitDistancePercent", out var tsDist))
+                p.TrailingStopExitDistancePercent = tsDist;
+            if (paramSet.TryGetValue("TrailingStopExitSlippage", out var tsSlippage))
+                p.TrailingStopExitSlippage = tsSlippage;
+            if (paramSet.TryGetValue("TrailingStopExitActivationPercent", out var tsActivation))
+                p.TrailingStopExitActivationPercent = tsActivation;
+            if (paramSet.TryGetValue("ProtectiveStopPercent", out var protectiveStop))
+                p.ProtectiveStopPercent = protectiveStop;
+
+            // Take Profit (для Market выхода)
+            if (paramSet.TryGetValue("TakeProfitCalculationType", out var tpCalc))
+                p.TakeProfitCalculationType = (PriceCalculationType)(int)tpCalc;
+            if (paramSet.TryGetValue("TakeProfitPercent", out var tpPercent))
+                p.TakeProfitPercent = tpPercent;
+            if (paramSet.TryGetValue("TakeProfitActivationPrice", out var tpActivation))
+                p.TakeProfitActivationPrice = tpActivation;
+            if (paramSet.TryGetValue("TakeProfitSlippage", out var tpSlippage))
+                p.TakeProfitSlippage = tpSlippage;
+
+            // Stop Loss (для Market выхода)
+            if (paramSet.TryGetValue("StopLossCalculationType", out var slCalc))
+                p.StopLossCalculationType = (PriceCalculationType)(int)slCalc;
+            if (paramSet.TryGetValue("StopLossPercent", out var slPercent))
+                p.StopLossPercent = slPercent;
+            if (paramSet.TryGetValue("StopLossActivationPrice", out var slActivation))
+                p.StopLossActivationPrice = slActivation;
+            if (paramSet.TryGetValue("StopLossSlippage", out var slSlippage))
+                p.StopLossSlippage = slSlippage;
+
+            // Level Crossing Exit
+            if (paramSet.TryGetValue("LevelCrossingExitProtectiveStopPercent", out var exitProtStop))
+                p.LevelCrossingExitProtectiveStopPercent = exitProtStop;
+            if (paramSet.TryGetValue("LevelCrossingExitProtectiveStopDistancePercent", out var exitProtStopDist))
+                p.LevelCrossingExitProtectiveStopDistancePercent = exitProtStopDist;
+
+            // ============================================================
+            // 5. ОБЩИЕ ПАРАМЕТРЫ
+            // ============================================================
+            if (paramSet.TryGetValue("AtrMultiplier", out var atrMultiplier))
+                p.AtrMultiplier = atrMultiplier;
             if (paramSet.TryGetValue("OrderSizePercent", out var orderSize))
                 p.OrderSizePercent = orderSize;
-            if (paramSet.TryGetValue("TakeProfitPercent", out var tp))
-                p.TakeProfitPercent = tp;
-            if (paramSet.TryGetValue("StopLossPercent", out var sl))
-                p.StopLossPercent = sl;
 
+            // Применяем параметры
             p.ApplyParameters();
+
             Debug.WriteLine("[ApplyRsiParametersToReal] Параметры применены");
             Debug.WriteLine("[ApplyRsiParametersToReal] КОНЕЦ");
         }
