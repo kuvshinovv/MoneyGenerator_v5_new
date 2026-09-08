@@ -310,7 +310,7 @@ namespace MoneyGenerator_v5.ViewModels
         /// Добавляет параметры для оптимизации RSI стратегии
         /// ✅ ИСПРАВЛЕНО: используем НОВЫЕ поля для ATR параметров
         /// </summary>
-        private void AddRsiParameters()
+        /*private void AddRsiParameters()
         {
             Debug.WriteLine("[AddRsiParameters] НАЧАЛО");
             var strategy = _strategyViewModel.RsiStrategy;
@@ -523,7 +523,240 @@ namespace MoneyGenerator_v5.ViewModels
             }
 
             Debug.WriteLine($"[AddRsiParameters] КОНЕЦ. Добавлено параметров: {Parameters.Count}");
+        }*/
+
+        /// <summary>
+        /// Добавляет параметры для оптимизации RSI стратегии
+        /// ✅ ИСПРАВЛЕНО: константные параметры скрыты из UI
+        /// </summary>
+        private void AddRsiParameters()
+        {
+            Debug.WriteLine("[AddRsiParameters] НАЧАЛО");
+            var strategy = _strategyViewModel.RsiStrategy;
+            if (strategy == null)
+            {
+                Debug.WriteLine("[AddRsiParameters] strategy is NULL!");
+                return;
+            }
+
+            var rsiParams = strategy.Parameters;
+            if (rsiParams == null)
+            {
+                Debug.WriteLine("[AddRsiParameters] rsiParams is NULL!");
+                return;
+            }
+
+            // ============================================================
+            // 0. КОНСТАНТНЫЕ ПАРАМЕТРЫ - ВСЕГДА ПЕРЕДАЮТСЯ В БЭКТЕСТ
+            //    НО СКРЫТЫ ОТ UI (не добавляются в Parameters коллекцию)
+            // ============================================================
+            // Эти параметры добавляются как константные, но НЕ отображаются в UI
+            // Они будут переданы в бэктест через словарь allParams
+            var constantParams = new Dictionary<string, decimal>
+            {
+                ["EntryOrderType"] = (decimal)rsiParams.EntryOrderType,
+                ["ExitOrderType"] = (decimal)rsiParams.ExitOrderType,
+                ["CloseOnSignalReversal"] = rsiParams.CloseOnSignalReversal ? 1 : 0,
+                ["EntrySlippage"] = rsiParams.EntrySlippage,
+                ["ExitSlippage"] = rsiParams.ExitSlippage,
+                ["MovingTPEntryTimeoutMinutes"] = rsiParams.MovingTPEntryTimeoutMinutes,
+                ["MovingTPExitTimeoutMinutes"] = rsiParams.MovingTPExitTimeoutMinutes,
+                ["MovingTPEntrySlippage"] = rsiParams.MovingTPEntrySlippage,
+                ["MovingTPExitSlippage"] = rsiParams.MovingTPExitSlippage,
+                ["MovingTPEntryCalculationType"] = (decimal)rsiParams.MovingTPEntryCalculationType,
+                ["MovingTPExitCalculationType"] = (decimal)rsiParams.MovingTPExitCalculationType,
+                ["OrderSizePercent"] = (decimal)rsiParams.OrderSizePercent,
+            };
+
+            // ✅ Сохраняем константные параметры в отдельном словаре для использования в бэктесте
+            foreach (var kvp in constantParams)
+            {
+                _originalParameters[kvp.Key] = kvp.Value;
+            }
+
+            // ============================================================
+            // 1. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА - ОТОБРАЖАЮТСЯ В UI
+            // ============================================================
+            if (rsiParams.OscillatorType == OscillatorType.StochRSI)
+            {
+                Debug.WriteLine("[AddRsiParameters] Добавление параметров StochRSI");
+                AddParameter("RsiPeriod", "Период RSI", rsiParams.RsiPeriod, 5, 50, 1);
+                AddParameter("RsiOverbought", "Перекупленность RSI", rsiParams.RsiOverbought, 60, 90, 1);
+                AddParameter("RsiOversold", "Перепроданность RSI", rsiParams.RsiOversold, 10, 40, 1);
+            }
+            else // Stochastic Oscillator
+            {
+                Debug.WriteLine("[AddRsiParameters] Добавление параметров Stochastic");
+                AddParameter("StochPeriod", "Период Stochastic", rsiParams.StochPeriod, 5, 50, 1);
+                AddParameter("StochOverbought", "Перекупленность Stochastic", rsiParams.StochOverbought, 60, 90, 1);
+                AddParameter("StochOversold", "Перепроданность Stochastic", rsiParams.StochOversold, 10, 40, 1);
+                AddParameter("StochSmoothK", "Сглаживание K Stochastic", rsiParams.StochSmoothK, 1, 10, 1);
+                AddParameter("StochSmoothD", "Сглаживание D Stochastic", rsiParams.StochSmoothD, 1, 10, 1);
+            }
+
+            // ============================================================
+            // 2. РАЗМЕР ПОЗИЦИИ - ОТОБРАЖАЕТСЯ В UI - убрал из UI в константные параметры
+            // ============================================================
+            //AddParameter("OrderSizePercent", "Размер позиции (% от депозита)",
+            //    rsiParams.OrderSizePercent, 1, 50, 1);
+
+            // ============================================================
+            // 3. ПАРАМЕТРЫ ВХОДА - ОТОБРАЖАЮТСЯ В UI (ТОЛЬКО ОПТИМИЗИРУЕМЫЕ)
+            // ============================================================
+            switch (rsiParams.EntryOrderType)
+            {
+                case MoneyGenerator_v5.Strategies.OrderType.Market:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: Market - НЕТ параметров");
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.Limit:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: Limit");
+                    AddParameter("EntryLimitOffsetPercent", "Смещение Limit входа (%)",
+                        rsiParams.EntryLimitOffsetPercent, 0.01m, 5, 0.01m);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.StopLimit:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: StopLimit");
+                    AddParameter("EntryStopOffsetPercent", "Смещение StopLimit входа (%)",
+                        rsiParams.EntryStopOffsetPercent, 0.01m, 5, 0.01m);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitEntry:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: MovingTakeProfitEntry");
+
+                    // ✅ ЦЕЛЬ (Target) - в зависимости от выбранного типа расчета
+                    switch (rsiParams.MovingTPEntryCalculationType)
+                    {
+                        case PriceCalculationType.Percentage:
+                            AddParameter("MovingTPEntryTargetPercent", "ЦЕЛЬ TP входа (%)",
+                                rsiParams.MovingTPEntryTargetPercent, 0.1m, 10, 0.1m);
+
+                            AddParameter("MovingTPEntryOffsetPercent", "ОТСТУП TP входа от мин/макс (%)",
+                                rsiParams.MovingTPEntryOffsetPercent, 0.1m, 5, 0.1m);
+                            break;
+
+                        case PriceCalculationType.ATR:
+                            AddParameter("MovingTPEntryTargetAtrMultiplier", "ЦЕЛЬ TP входа (множитель ATR)",
+                                rsiParams.MovingTPEntryTargetAtrMultiplier, 0.5m, 5, 0.25m);
+
+                            AddParameter("MovingTPEntryOffsetAtrMultiplier", "ОТСТУП TP входа от мин/макс (множитель ATR)",
+                                rsiParams.MovingTPEntryOffsetAtrMultiplier, 0.1m, 3, 0.1m);
+                            break;
+
+                        case PriceCalculationType.Absolute:
+                            AddParameter("MovingTPEntryTargetAbsolute", "ЦЕЛЬ TP входа (абс.)",
+                                rsiParams.MovingTPEntryTargetAbsolute, 0.1m, 100, 0.1m);
+
+                            AddParameter("MovingTPEntryOffsetAbsolute", "ОТСТУП TP входа от мин/макс (абс.)",
+                                rsiParams.MovingTPEntryOffsetAbsolute, 0.1m, 50, 0.1m);
+                            break;
+                    }
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.LevelCrossingEntry:
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: LevelCrossingEntry");
+
+                    AddParameter("LevelCrossingEntryProtectiveStopPercent", "Защитный стоп входа (%)",
+                        rsiParams.LevelCrossingEntryProtectiveStopPercent, 0.05m, 5, 0.05m);
+
+                    AddParameter("LevelCrossingEntryProtectiveStopDistancePercent", "Отступ стопа входа от мин/макс (%)",
+                        rsiParams.LevelCrossingEntryProtectiveStopDistancePercent, 0.05m, 5, 0.05m);
+                    break;
+            }
+
+            // ============================================================
+            // 4. ПАРАМЕТРЫ ВЫХОДА - ОТОБРАЖАЮТСЯ В UI (ТОЛЬКО ОПТИМИЗИРУЕМЫЕ)
+            // ============================================================
+            switch (rsiParams.ExitOrderType)
+            {
+                case MoneyGenerator_v5.Strategies.OrderType.Market:
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: Market");
+
+                    AddParameter("TakeProfitPercent", "Тейк-профит (%)",
+                        rsiParams.TakeProfitPercent, 0.1m, 10, 0.1m);
+                    AddParameter("StopLossPercent", "Стоп-лосс (%)",
+                        rsiParams.StopLossPercent, 0.1m, 5, 0.1m);
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitExit:
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: MovingTakeProfitExit");
+
+                    switch (rsiParams.MovingTPExitCalculationType)
+                    {
+                        case PriceCalculationType.Percentage:
+                            AddParameter("MovingTPExitTargetPercent", "ЦЕЛЬ TP выхода (%)",
+                                rsiParams.MovingTPExitStartPercent, 0.1m, 10, 0.1m);
+
+                            AddParameter("MovingTPExitOffsetPercent", "ОТСТУП TP выхода от мин/макс (%)",
+                                rsiParams.MovingTPExitOffsetPercent, 0.1m, 5, 0.1m);
+                            break;
+
+                        case PriceCalculationType.ATR:
+                            AddParameter("MovingTPExitTargetAtrMultiplier", "ЦЕЛЬ TP выхода (множитель ATR)",
+                                rsiParams.MovingTPExitTargetAtrMultiplier, 0.5m, 5, 0.25m);
+
+                            AddParameter("MovingTPExitOffsetAtrMultiplier", "ОТСТУП TP выхода от мин/макс (множитель ATR)",
+                                rsiParams.MovingTPExitOffsetAtrMultiplier, 0.1m, 3, 0.1m);
+                            break;
+
+                        case PriceCalculationType.Absolute:
+                            AddParameter("MovingTPExitTargetAbsolute", "ЦЕЛЬ TP выхода (абс.)",
+                                rsiParams.MovingTPExitStartAbsolute, 0.1m, 100, 0.1m);
+
+                            AddParameter("MovingTPExitOffsetAbsolute", "ОТСТУП TP выхода от мин/макс (абс.)",
+                                rsiParams.MovingTPExitOffsetAbsolute, 0.1m, 50, 0.1m);
+                            break;
+                    }
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.TrailingStopExit:
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: TrailingStopExit");
+
+                    AddParameter("ProtectiveStopPercent", "Защитный стоп выхода (%)",
+                        rsiParams.ProtectiveStopPercent, 0.1m, 5, 0.1m);
+
+                    AddParameter("TrailingStopExitActivationPercent", "Активация трейлинг-стопа (% прибыли)",
+                        rsiParams.TrailingStopExitActivationPercent, 0.1m, 10, 0.1m);
+
+                    switch (rsiParams.TrailingStopExitCalculationType)
+                    {
+                        case PriceCalculationType.Percentage:
+                            AddParameter("TrailingStopExitDistancePercent", "Отступ трейлинг-стопа (%)",
+                                rsiParams.TrailingStopExitDistancePercent, 0.1m, 5, 0.1m);
+                            break;
+
+                        case PriceCalculationType.ATR:
+                            AddParameter("TrailingStopAtrMultiplier", "Отступ трейлинг-стопа (множитель ATR)",
+                                rsiParams.MovingTPExitAtrMultiplier, 0.5m, 5, 0.25m);
+                            break;
+
+                        case PriceCalculationType.Absolute:
+                            AddParameter("TrailingStopExitDistanceAbsolute", "Отступ трейлинг-стопа (абс.)",
+                                rsiParams.TrailingStopExitDistanceAbsolute, 0.1m, 100, 0.1m);
+                            break;
+                    }
+                    break;
+
+                case MoneyGenerator_v5.Strategies.OrderType.LevelCrossingExit:
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: LevelCrossingExit");
+
+                    AddParameter("LevelCrossingExitProtectiveStopPercent", "Защитный стоп выхода (%)",
+                        rsiParams.LevelCrossingExitProtectiveStopPercent, 0.05m, 5, 0.05m);
+
+                    AddParameter("LevelCrossingExitProtectiveStopDistancePercent", "Отступ стопа выхода от мин/макс (%)",
+                        rsiParams.LevelCrossingExitProtectiveStopDistancePercent, 0.05m, 5, 0.05m);
+                    break;
+            }
+
+            Debug.WriteLine($"[AddRsiParameters] КОНЕЦ. Добавлено параметров: {Parameters.Count}");
         }
+
+
+
+
+
+
+
 
         /// <summary>
         /// Добавляет параметры для оптимизации MA стратегии
@@ -2560,7 +2793,26 @@ namespace MoneyGenerator_v5.ViewModels
 
             try
             {
+                // ✅ Получаем все параметры из коллекции (только те, что в UI)
                 var allParams = Parameters.ToDictionary(p => p.Name, p => p.CurrentValue);
+
+                // ✅ ДОБАВЛЯЕМ КОНСТАНТНЫЕ ПАРАМЕТРЫ (которые скрыты из UI)
+                // Они уже сохранены в _originalParameters
+                foreach (var kvp in _originalParameters)
+                {
+                    if (!allParams.ContainsKey(kvp.Key))
+                    {
+                        allParams[kvp.Key] = kvp.Value;
+                        Debug.WriteLine($"[RunOptimizationAsync] Добавлен константный параметр: {kvp.Key} = {kvp.Value}");
+                    }
+                }
+
+
+                Debug.WriteLine($"[RunOptimizationAsync] Всего параметров (включая константные): {allParams.Count}");
+
+
+
+
 
                 Debug.WriteLine($"[RunOptimizationAsync] Все параметры (текущие значения):");
                 foreach (var kvp in allParams)
