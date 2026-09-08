@@ -2361,16 +2361,41 @@ namespace MoneyGenerator_v5.ViewModels
             {
                 // Создаем ViewModel для оптимизации
                 var optimizationVM = new OptimizationViewModel(
-                    this,
-                    _providerService,
-                    _logger);
+                   this,
+                   _providerService,
+                   _logger);
 
-                // Подписываемся на событие применения параметров
+                // ✅ Сохраняем ссылку на ViewModel
+                var vmRef = optimizationVM;
+
+                // ✅ ПОДПИСЫВАЕМСЯ НА СОБЫТИЕ ПРИМЕНЕНИЯ ПАРАМЕТРОВ
+                optimizationVM.OnParametersAppliedToStrategy += RefreshStrategyUI;
+
+
+                // Подписываемся на событие применения параметров (для обновления стратегии)
                 optimizationVM.ParametersApplied += (paramsDict) =>
                 {
                     Debug.WriteLine($"[StrategyViewModel] Параметры применены: {paramsDict.Count}");
-                    // После применения параметров обновляем UI стратегии
-                    _maStrategy?.OnParametersChanged();
+
+                    // ✅ Обновляем стратегию
+                    switch (_strategy.Type)
+                    {
+                        case "RSI":
+                            _rsiStrategy?.OnParametersChanged(_rsiStrategy.Parameters);
+                            break;
+                        case "MA":
+                            _maStrategy?.OnParametersChanged();
+                            break;
+                        case "Rating":
+                            _ratingStrategy?.OnParametersChanged();
+                            break;
+                        case "PairsTrading":
+                            _pairsStrategy?.OnParametersChanged(_pairsStrategy.Parameters);
+                            break;
+                    }
+
+                    // ✅ Обновляем UI
+                    RefreshStrategyUI();
                 };
 
                 // Создаем окно
@@ -2388,8 +2413,7 @@ namespace MoneyGenerator_v5.ViewModels
 
 
 
-                // ✅ ИЗМЕНЕНИЕ: Сохраняем ссылку на ViewModel для правильного освобождения
-                var vmRef = optimizationVM;
+               
 
                 // ✅ ИЗМЕНЕНИЕ: Подписываемся на событие закрытия для освобождения ресурсов
                 window.Closed += (s, e) =>
@@ -2404,6 +2428,7 @@ namespace MoneyGenerator_v5.ViewModels
                         {
                             // Очищаем все ссылки на события
                             vmRef.ParametersApplied -= null;
+                            vmRef.OnParametersAppliedToStrategy -= RefreshStrategyUI;
 
                             // Вызываем Dispose
                             vmRef.Dispose();
@@ -2461,7 +2486,77 @@ namespace MoneyGenerator_v5.ViewModels
 
         #endregion
 
+        /// <summary>
+        /// Обновляет UI стратегии после применения параметров из оптимизации
+        /// </summary>
+        private void RefreshStrategyUI()
+        {
+            Debug.WriteLine("[StrategyViewModel] RefreshStrategyUI - Обновление UI стратегии");
 
+            try
+            {
+                // ✅ ПЕРЕСОЗДАЕМ КОНТРОЛЫ СТРАТЕГИИ С НОВЫМИ ЗНАЧЕНИЯМИ
+                switch (_strategy.Type)
+                {
+                    case "RSI":
+                        if (_rsiStrategy != null)
+                        {
+                            // ✅ КРИТИЧЕСКИ ВАЖНО: полностью пересоздаем контролы
+                            StrategySettingsControl = _rsiStrategy.GetSettingsView();
+                            StrategyControlView = _rsiStrategy.GetControlView();
+                            Debug.WriteLine("[StrategyViewModel] RSI UI обновлен");
+                        }
+                        break;
+
+                    case "MA":
+                        if (_maStrategy != null)
+                        {
+                            StrategySettingsControl = _maStrategy.GetSettingsView();
+                            StrategyControlView = _maStrategy.GetControlView();
+                            Debug.WriteLine("[StrategyViewModel] MA UI обновлен");
+                        }
+                        break;
+
+                    case "Manual":
+                        if (_manualStrategy != null)
+                        {
+                            StrategySettingsControl = _manualStrategy.GetSettingsView();
+                            StrategyControlView = _manualStrategy.GetControlView();
+                            Debug.WriteLine("[StrategyViewModel] Manual UI обновлен");
+                        }
+                        break;
+
+                    case "Rating":
+                        if (_ratingStrategy != null)
+                        {
+                            StrategySettingsControl = _ratingStrategy.GetSettingsView();
+                            StrategyControlView = _ratingStrategy.GetControlView();
+                            Debug.WriteLine("[StrategyViewModel] Rating UI обновлен");
+                        }
+                        break;
+
+                    case "PairsTrading":
+                        if (_pairsStrategy != null)
+                        {
+                            StrategySettingsControl = _pairsStrategy.GetSettingsView();
+                            StrategyControlView = _pairsStrategy.GetControlView();
+                            Debug.WriteLine("[StrategyViewModel] PairsTrading UI обновлен");
+                        }
+                        break;
+                }
+
+                // ✅ ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ UI
+                OnPropertyChanged(nameof(StrategySettingsControl));
+                OnPropertyChanged(nameof(StrategyControlView));
+
+                Debug.WriteLine("[StrategyViewModel] RefreshStrategyUI - UI обновлен");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[StrategyViewModel] Ошибка при обновлении UI: {ex.Message}");
+                _logger?.LogError(ex, "Ошибка при обновлении UI стратегии");
+            }
+        }
 
 
         /// <summary>

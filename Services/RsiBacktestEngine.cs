@@ -156,59 +156,62 @@ namespace MoneyGenerator_v5.Services
         {
             return new[]
             {
-                // Параметры RSI
+                // Параметры RSI / StochRSI
                 "RsiPeriod",
                 "RsiOverbought",
                 "RsiOversold",
-                // Параметры Stochastic/StochRSI
+    
+                // Параметры Stochastic
                 "StochPeriod",
                 "StochOverbought",
                 "StochOversold",
                 "StochSmoothK",
                 "StochSmoothD",
                 "OscillatorType",
-                // Параметры входа
-                "EntryOrderType",
-                "EntryLimitOffsetPercent",
-                "EntryStopOffsetPercent",
-                "EntrySlippage",
-                // Параметры выхода
-                "ExitOrderType",
-                "ExitSlippage",
-                // Moving Take Profit Entry
-                "MovingTPEntryCalculationType",
+    
+                // Moving Take Profit Entry - ЦЕЛЬ
                 "MovingTPEntryTargetPercent",
-                "MovingTPEntrySlippage",
-                "MovingTPEntryTimeoutMinutes",
-                // Moving Take Profit Exit
-                "MovingTPExitCalculationType",
-                "MovingTPExitStartPercent",
-                "MovingTPExitSlippage",
-                "MovingTPExitTimeoutMinutes",
+                "MovingTPEntryTargetAbsolute",
+                "MovingTPEntryTargetAtrMultiplier",
+    
+                // ✅ ДОБАВЛЯЕМ: Moving Take Profit Entry - ОТСТУП
+                "MovingTPEntryOffsetPercent",
+                "MovingTPEntryOffsetAbsolute",
+                "MovingTPEntryOffsetAtrMultiplier",
+    
+                // Moving Take Profit Exit - ЦЕЛЬ
+                "MovingTPExitTargetPercent",
+                "MovingTPExitTargetAbsolute",
+                "MovingTPExitTargetAtrMultiplier",
+    
+                // ✅ ДОБАВЛЯЕМ: Moving Take Profit Exit - ОТСТУП
+                "MovingTPExitOffsetPercent",
+                "MovingTPExitOffsetAbsolute",
+                "MovingTPExitOffsetAtrMultiplier",
+    
                 // Trailing Stop Exit
-                "TrailingStopExitCalculationType",
-                "TrailingStopExitDistancePercent",
-                "TrailingStopExitSlippage",
-                "TrailingStopExitActivationPercent",
                 "ProtectiveStopPercent",
-                // Take Profit / Stop Loss (для Market выхода)
-                "TakeProfitCalculationType",
-                "TakeProfitPercent",
-                "TakeProfitActivationPrice",
-                "TakeProfitSlippage",
-                "StopLossCalculationType",
-                "StopLossPercent",
-                "StopLossActivationPrice",
-                "StopLossSlippage",
-                // Общие
-                "AtrMultiplier",
-                "OrderSizePercent",
-                "CloseOnSignalReversal",
-                // Level Crossing Entry/Exit
+                "TrailingStopExitActivationPercent",
+                "TrailingStopExitDistancePercent",
+                "TrailingStopExitDistanceAbsolute",
+                "TrailingStopAtrMultiplier",
+    
+                // Level Crossing Entry
                 "LevelCrossingEntryProtectiveStopPercent",
                 "LevelCrossingEntryProtectiveStopDistancePercent",
+    
+                // Level Crossing Exit
                 "LevelCrossingExitProtectiveStopPercent",
-                "LevelCrossingExitProtectiveStopDistancePercent"
+                "LevelCrossingExitProtectiveStopDistancePercent",
+        
+                // Take Profit / Stop Loss (для Market выхода)
+                "TakeProfitPercent",
+                "TakeProfitAtrMultiplier",
+                "StopLossPercent",
+                "StopLossAtrMultiplier",
+        
+                // Размер позиции
+                "OrderSizePercent",
             };
         }
 
@@ -249,71 +252,98 @@ namespace MoneyGenerator_v5.Services
 
             try
             {
-                // Параметры RSI
+                // ============================================================
+                // 1. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА
+                // ============================================================
                 result.RsiPeriod = (int)GetParam(parameters, "RsiPeriod", 14, 5, 50);
                 result.RsiOverbought = GetParam(parameters, "RsiOverbought", 70, 60, 90);
                 result.RsiOversold = GetParam(parameters, "RsiOversold", 30, 10, 40);
 
-                // Параметры Stochastic
                 result.StochPeriod = (int)GetParam(parameters, "StochPeriod", 14, 5, 50);
                 result.StochOverbought = GetParam(parameters, "StochOverbought", 80, 60, 90);
                 result.StochOversold = GetParam(parameters, "StochOversold", 20, 10, 40);
                 result.StochSmoothK = (int)GetParam(parameters, "StochSmoothK", 3, 1, 10);
                 result.StochSmoothD = (int)GetParam(parameters, "StochSmoothD", 3, 1, 10);
-
-                // OscillatorType: 0 = StochRSI, 1 = Stochastic
                 result.OscillatorType = (OscillatorType)(int)GetParam(parameters, "OscillatorType", 1, 0, 1);
 
-                // Параметры входа
+                // ============================================================
+                // 2. КОНСТАНТНЫЕ ПАРАМЕТРЫ (из стратегии)
+                // ============================================================
                 result.EntryOrderType = (MoneyGenerator_v5.Strategies.OrderType)(int)GetParam(parameters, "EntryOrderType", 4, 0, 4);
+                result.ExitOrderType = (MoneyGenerator_v5.Strategies.OrderType)(int)GetParam(parameters, "ExitOrderType", 3, 0, 3);
+                result.CloseOnSignalReversal = (int)GetParam(parameters, "CloseOnSignalReversal", 0, 0, 1) == 1;
+                result.EntrySlippage = GetParam(parameters, "EntrySlippage", 0.01m, 0, 1);
+                result.ExitSlippage = GetParam(parameters, "ExitSlippage", 0.01m, 0, 1);
+                result.MovingTPEntryTimeoutMinutes = (int)GetParam(parameters, "MovingTPEntryTimeoutMinutes", 60, 1, 1440);
+                result.MovingTPExitTimeoutMinutes = (int)GetParam(parameters, "MovingTPExitTimeoutMinutes", 60, 1, 1440);
+                result.MovingTPEntrySlippage = GetParam(parameters, "MovingTPEntrySlippage", 0.01m, 0, 1);
+                result.MovingTPExitSlippage = GetParam(parameters, "MovingTPExitSlippage", 0.01m, 0, 1);
+
+                // ============================================================
+                // 3. ПАРАМЕТРЫ ВХОДА
+                // ============================================================
                 result.EntryLimitOffsetPercent = GetParam(parameters, "EntryLimitOffsetPercent", 0.1m, 0.01m, 5m);
                 result.EntryStopOffsetPercent = GetParam(parameters, "EntryStopOffsetPercent", 0.2m, 0.01m, 5m);
-                result.EntrySlippage = GetParam(parameters, "EntrySlippage", 0.01m, 0m, 1m);
 
-                // Параметры выхода
-                result.ExitOrderType = (MoneyGenerator_v5.Strategies.OrderType)(int)GetParam(parameters, "ExitOrderType", 3, 0, 3);
-                result.ExitSlippage = GetParam(parameters, "ExitSlippage", 0.01m, 0m, 1m);
-
-                // Moving Take Profit Entry
+                // Moving Take Profit Entry - ЦЕЛЬ
                 result.MovingTPEntryCalculationType = (PriceCalculationType)(int)GetParam(parameters, "MovingTPEntryCalculationType", 2, 0, 2);
                 result.MovingTPEntryTargetPercent = GetParam(parameters, "MovingTPEntryTargetPercent", 2.0m, 0.1m, 10m);
-                result.MovingTPEntrySlippage = GetParam(parameters, "MovingTPEntrySlippage", 0.01m, 0m, 1m);
-                result.MovingTPEntryTimeoutMinutes = (int)GetParam(parameters, "MovingTPEntryTimeoutMinutes", 60, 1, 1440);
+                result.MovingTPEntryTargetAbsolute = GetParam(parameters, "MovingTPEntryTargetAbsolute", 10.0m, 0.1m, 100m);
+                result.MovingTPEntryTargetAtrMultiplier = GetParam(parameters, "MovingTPEntryTargetAtrMultiplier", 1.5m, 0.5m, 5m);
 
-                // Moving Take Profit Exit
+                // ✅ ДОБАВЛЯЕМ: Moving Take Profit Entry - ОТСТУП от мин/макс
+                result.MovingTPEntryOffsetPercent = GetParam(parameters, "MovingTPEntryOffsetPercent", 0.5m, 0.1m, 5m);
+                result.MovingTPEntryOffsetAbsolute = GetParam(parameters, "MovingTPEntryOffsetAbsolute", 2.0m, 0.1m, 50m);
+                result.MovingTPEntryOffsetAtrMultiplier = GetParam(parameters, "MovingTPEntryOffsetAtrMultiplier", 0.5m, 0.1m, 3m);
+
+                // Level Crossing Entry
+                result.LevelCrossingEntryProtectiveStopPercent = GetParam(parameters, "LevelCrossingEntryProtectiveStopPercent", 0.25m, 0.05m, 5m);
+                result.LevelCrossingEntryProtectiveStopDistancePercent = GetParam(parameters, "LevelCrossingEntryProtectiveStopDistancePercent", 0.25m, 0.05m, 5m);
+
+                // ============================================================
+                // 4. ПАРАМЕТРЫ ВЫХОДА
+                // ============================================================
+
+                // Moving Take Profit Exit - ЦЕЛЬ
                 result.MovingTPExitCalculationType = (PriceCalculationType)(int)GetParam(parameters, "MovingTPExitCalculationType", 2, 0, 2);
-                result.MovingTPExitStartPercent = GetParam(parameters, "MovingTPExitStartPercent", 2.0m, 0.1m, 10m);
-                result.MovingTPExitSlippage = GetParam(parameters, "MovingTPExitSlippage", 0.01m, 0m, 1m);
-                result.MovingTPExitTimeoutMinutes = (int)GetParam(parameters, "MovingTPExitTimeoutMinutes", 60, 1, 1440);
+                result.MovingTPExitTargetPercent = GetParam(parameters, "MovingTPExitTargetPercent", 2.0m, 0.1m, 10m);
+                result.MovingTPExitTargetAbsolute = GetParam(parameters, "MovingTPExitTargetAbsolute", 10.0m, 0.1m, 100m);
+                result.MovingTPExitTargetAtrMultiplier = GetParam(parameters, "MovingTPExitTargetAtrMultiplier", 1.5m, 0.5m, 5m);
+
+                // ✅ ДОБАВЛЯЕМ: Moving Take Profit Exit - ОТСТУП от мин/макс
+                result.MovingTPExitOffsetPercent = GetParam(parameters, "MovingTPExitOffsetPercent", 0.5m, 0.1m, 5m);
+                result.MovingTPExitOffsetAbsolute = GetParam(parameters, "MovingTPExitOffsetAbsolute", 2.0m, 0.1m, 50m);
+                result.MovingTPExitOffsetAtrMultiplier = GetParam(parameters, "MovingTPExitOffsetAtrMultiplier", 0.5m, 0.1m, 3m);
 
                 // Trailing Stop Exit
                 result.TrailingStopExitCalculationType = (PriceCalculationType)(int)GetParam(parameters, "TrailingStopExitCalculationType", 2, 0, 2);
                 result.TrailingStopExitDistancePercent = GetParam(parameters, "TrailingStopExitDistancePercent", 0.5m, 0.1m, 5m);
-                result.TrailingStopExitSlippage = GetParam(parameters, "TrailingStopExitSlippage", 0.01m, 0m, 1m);
+                result.TrailingStopExitDistanceAbsolute = GetParam(parameters, "TrailingStopExitDistanceAbsolute", 2.0m, 0.1m, 100m);
+                result.TrailingStopAtrMultiplier = GetParam(parameters, "TrailingStopAtrMultiplier", 1.5m, 0.5m, 5m);
                 result.TrailingStopExitActivationPercent = GetParam(parameters, "TrailingStopExitActivationPercent", 1.0m, 0.1m, 10m);
                 result.ProtectiveStopPercent = GetParam(parameters, "ProtectiveStopPercent", 0.5m, 0.1m, 5m);
+
+                // Level Crossing Exit
+                result.LevelCrossingExitProtectiveStopPercent = GetParam(parameters, "LevelCrossingExitProtectiveStopPercent", 0.25m, 0.05m, 5m);
+                result.LevelCrossingExitProtectiveStopDistancePercent = GetParam(parameters, "LevelCrossingExitProtectiveStopDistancePercent", 0.25m, 0.05m, 5m);
 
                 // Take Profit / Stop Loss (для Market выхода)
                 result.TakeProfitCalculationType = (PriceCalculationType)(int)GetParam(parameters, "TakeProfitCalculationType", 2, 0, 2);
                 result.TakeProfitPercent = GetParam(parameters, "TakeProfitPercent", 2.0m, 0.1m, 10m);
+                result.TakeProfitAtrMultiplier = GetParam(parameters, "TakeProfitAtrMultiplier", 1.5m, 0.5m, 5m);
                 result.TakeProfitActivationPrice = GetParam(parameters, "TakeProfitActivationPrice", 0m, 0m, 100m);
                 result.TakeProfitSlippage = GetParam(parameters, "TakeProfitSlippage", 0.01m, 0m, 1m);
 
                 result.StopLossCalculationType = (PriceCalculationType)(int)GetParam(parameters, "StopLossCalculationType", 2, 0, 2);
                 result.StopLossPercent = GetParam(parameters, "StopLossPercent", 1.0m, 0.1m, 5m);
+                result.StopLossAtrMultiplier = GetParam(parameters, "StopLossAtrMultiplier", 1.5m, 0.5m, 5m);
                 result.StopLossActivationPrice = GetParam(parameters, "StopLossActivationPrice", 0m, 0m, 100m);
                 result.StopLossSlippage = GetParam(parameters, "StopLossSlippage", 0.01m, 0m, 1m);
 
-                // Общие
-                result.AtrMultiplier = GetParam(parameters, "AtrMultiplier", 1.5m, 0.5m, 5m);
+                // ============================================================
+                // 5. РАЗМЕР ПОЗИЦИИ
+                // ============================================================
                 result.OrderSizePercent = GetParam(parameters, "OrderSizePercent", 10m, 0.1m, 50m);
-                result.CloseOnSignalReversal = (int)GetParam(parameters, "CloseOnSignalReversal", 0, 0, 1) == 1;
-
-                // Level Crossing Entry/Exit
-                result.LevelCrossingEntryProtectiveStopPercent = GetParam(parameters, "LevelCrossingEntryProtectiveStopPercent", 0.25m, 0.05m, 2m);
-                result.LevelCrossingEntryProtectiveStopDistancePercent = GetParam(parameters, "LevelCrossingEntryProtectiveStopDistancePercent", 0.25m, 0.05m, 2m);
-                result.LevelCrossingExitProtectiveStopPercent = GetParam(parameters, "LevelCrossingExitProtectiveStopPercent", 0.25m, 0.05m, 2m);
-                result.LevelCrossingExitProtectiveStopDistancePercent = GetParam(parameters, "LevelCrossingExitProtectiveStopDistancePercent", 0.25m, 0.05m, 2m);
 
                 return true;
             }
@@ -431,7 +461,7 @@ namespace MoneyGenerator_v5.Services
                 decimal positionLots = 0;
                 decimal positionCost = 0;
 
-                // Для отслеживания движения цены
+                // Для отслеживания движения цены (экстремумы)
                 decimal highestPrice = 0;
                 decimal lowestPrice = 0;
 
@@ -440,6 +470,7 @@ namespace MoneyGenerator_v5.Services
                 decimal movingTPEntryTargetPrice = 0;
                 DateTime movingTPEntryStartTime = DateTime.MinValue;
                 bool movingTPEntryActive = false;
+                string movingTPEntryDirection = ""; // ✅ Добавляем для отслеживания направления
 
                 // Для скользящего тейк-профита на выходе
                 decimal movingTPExitStartPrice = 0;
@@ -474,7 +505,9 @@ namespace MoneyGenerator_v5.Services
                 _previousOscillatorValue = 0;
                 _hasPreviousOscillatorValue = false;
 
+                // ============================================================
                 // ОСНОВНОЙ ЦИКЛ СИМУЛЯЦИИ
+                // ============================================================
                 for (int i = startIndex; i < _candles.Count; i++)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -500,12 +533,18 @@ namespace MoneyGenerator_v5.Services
                         // Текущий ATR
                         decimal currentAtr = idx < atrValues.Count ? atrValues[idx] : (atrValues.LastOrDefault());
 
-                        // Определяем пересечения уровней
-                        bool crossingAboveOverbought = previousOscillator > parameters.StochOverbought &&
-                                                       oscillator <= parameters.StochOverbought;
+                        // ✅ ИСПРАВЛЕНО: Определяем пересечения уровней с валидацией
+                        bool crossingAboveOverbought = false;
+                        bool crossingBelowOversold = false;
 
-                        bool crossingBelowOversold = previousOscillator < parameters.StochOversold &&
-                                                     oscillator >= parameters.StochOversold;
+                        if (_hasPreviousOscillatorValue && oscillator > 0 && previousOscillator > 0)
+                        {
+                            crossingAboveOverbought = previousOscillator > parameters.StochOverbought &&
+                                                      oscillator <= parameters.StochOverbought;
+
+                            crossingBelowOversold = previousOscillator < parameters.StochOversold &&
+                                                    oscillator >= parameters.StochOversold;
+                        }
 
                         // Сохраняем текущее значение для следующей итерации
                         _previousOscillatorValue = oscillator;
@@ -527,12 +566,12 @@ namespace MoneyGenerator_v5.Services
                             // Проверка сигнала в зависимости от типа входа
                             if (isLevelCrossingEntry)
                             {
-                                // Вход по пересечению уровня
+                                // ✅ Вход по пересечению уровня
                                 if (crossingBelowOversold)
                                 {
                                     entrySignal = true;
                                     signal = "LONG (Level Crossing)";
-                                    // Защитный стоп для входа
+                                    // Защитный стоп рассчитываем от текущей цены
                                     protectiveStopPrice = entryPriceCandidate * (1 - parameters.LevelCrossingEntryProtectiveStopPercent / 100);
                                 }
                                 else if (crossingAboveOverbought)
@@ -544,36 +583,41 @@ namespace MoneyGenerator_v5.Services
                             }
                             else if (parameters.EntryOrderType == MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitEntry)
                             {
-                                // Скользящий тейк-профит на входе
+                                // ✅ Скользящий тейк-профит на входе
                                 if (isOversold)
                                 {
+                                    movingTPEntryDirection = "LONG";
                                     movingTPEntryStartPrice = price;
                                     movingTPEntryTargetPrice = CalculateMovingTPEntryTarget(price, "LONG", currentAtr, parameters);
                                     movingTPEntryStartTime = DateTime.Now;
                                     movingTPEntryActive = true;
-                                    entrySignal = false; // Не входим сразу, ждем достижения цели
+                                    entrySignal = false;
                                     signal = "LONG (Moving TP Entry)";
-                                    //Debug.WriteLine($"[RsiBacktestEngine] 📊 Moving TP Entry LONG: старт={price:F2}, цель={movingTPEntryTargetPrice:F2}");
+
+                                    _logger?.LogDebug($"[RsiBacktestEngine] 🔄 Moving TP Entry LONG активирован: " +
+                                                      $"StartPrice={price:F2}, Target={movingTPEntryTargetPrice:F2}");
                                 }
                                 else if (isOverbought)
                                 {
+                                    movingTPEntryDirection = "SHORT";
                                     movingTPEntryStartPrice = price;
                                     movingTPEntryTargetPrice = CalculateMovingTPEntryTarget(price, "SHORT", currentAtr, parameters);
                                     movingTPEntryStartTime = DateTime.Now;
                                     movingTPEntryActive = true;
                                     entrySignal = false;
                                     signal = "SHORT (Moving TP Entry)";
-                                    //Debug.WriteLine($"[RsiBacktestEngine] 📊 Moving TP Entry SHORT: старт={price:F2}, цель={movingTPEntryTargetPrice:F2}");
+
+                                    _logger?.LogDebug($"[RsiBacktestEngine] 🔄 Moving TP Entry SHORT активирован: " +
+                                                      $"StartPrice={price:F2}, Target={movingTPEntryTargetPrice:F2}");
                                 }
                             }
                             else
                             {
-                                // Обычные сигналы (Market, Limit, StopLimit)
+                                // ✅ Обычные сигналы (Market, Limit, StopLimit)
                                 if (isOversold)
                                 {
                                     entrySignal = true;
                                     signal = "LONG";
-                                    // Расчет цены входа для Limit/StopLimit
                                     if (parameters.EntryOrderType == MoneyGenerator_v5.Strategies.OrderType.Limit)
                                     {
                                         entryPriceCandidate = price * (1 - parameters.EntryLimitOffsetPercent / 100);
@@ -623,23 +667,10 @@ namespace MoneyGenerator_v5.Services
                                 highestPrice = entryPrice;
                                 lowestPrice = entryPrice;
 
-                                // Списываем стоимость позиции + комиссию
                                 decimal entryCommission = positionCost * COMMISSION_RATE;
                                 balance -= positionCost + entryCommission;
 
                                 inPosition = true;
-
-                                // Для Level Crossing Entry - активируем защитный стоп
-                                if (isLevelCrossingEntry)
-                                {
-                                    // Стоп уже рассчитан
-                                }
-
-                                // Для Moving TP Entry - если вдруг цена сразу достигла цели
-                                if (parameters.EntryOrderType == MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitEntry)
-                                {
-                                    movingTPEntryActive = false;
-                                }
 
                                 _logger?.LogDebug($"[RsiBacktestEngine] 📈 ВХОД {signal}: " +
                                                   $"позиция={positionLots} лотов, цена={entryPriceCandidate:F2}, " +
@@ -648,48 +679,56 @@ namespace MoneyGenerator_v5.Services
                         }
 
                         // ============================================================
-                        // ОБРАБОТКА СКОЛЬЗЯЩЕГО ТЕЙК-ПРОФИТА НА ВХОДЕ
+                        // ✅ ИСПРАВЛЕННАЯ ОБРАБОТКА СКОЛЬЗЯЩЕГО ТЕЙК-ПРОФИТА НА ВХОДЕ
                         // ============================================================
                         if (movingTPEntryActive && !inPosition)
                         {
                             bool entryTriggered = false;
                             string signal = "";
 
-                            if (movingTPEntryStartPrice > 0)
+                            if (movingTPEntryStartPrice > 0 && movingTPEntryTargetPrice > 0)
                             {
-                                // Для LONG: вход когда цена достигает цели (выше)
-                                if (price >= movingTPEntryTargetPrice && price > movingTPEntryStartPrice)
+                                // ✅ ИСПРАВЛЕНО: Проверяем достижение цели
+                                if (movingTPEntryDirection == "LONG")
                                 {
-                                    entryTriggered = true;
-                                    signal = "LONG (Moving TP)";
-                                }
-                                // Для SHORT: вход когда цена достигает цели (ниже)
-                                else if (price <= movingTPEntryTargetPrice && price < movingTPEntryStartPrice)
-                                {
-                                    entryTriggered = true;
-                                    signal = "SHORT (Moving TP)";
-                                }
+                                    // Для LONG: вход когда цена достигает цели (выше или равна)
+                                    if (price >= movingTPEntryTargetPrice)
+                                    {
+                                        entryTriggered = true;
+                                        signal = "LONG (Moving TP)";
 
-                                // Обновляем экстремум для скользящей цели
-                                if (movingTPEntryTargetPrice > 0)
-                                {
-                                    if (price < movingTPEntryStartPrice && movingTPEntryTargetPrice > 0)
-                                    {
-                                        // Для LONG: новый минимум
-                                        if (price < movingTPEntryStartPrice)
-                                        {
-                                            movingTPEntryStartPrice = price;
-                                            movingTPEntryTargetPrice = CalculateMovingTPEntryTarget(price, "LONG", currentAtr, parameters);
-                                        }
+                                        _logger?.LogDebug($"[RsiBacktestEngine] 🎯 Moving TP Entry LONG сработал: " +
+                                                          $"Цена={price:F2} >= Цель={movingTPEntryTargetPrice:F2}");
                                     }
-                                    else if (price > movingTPEntryStartPrice && movingTPEntryTargetPrice > 0)
+                                    // ✅ ИСПРАВЛЕНО: Обновляем экстремум (новый минимум)
+                                    else if (price < movingTPEntryStartPrice)
                                     {
-                                        // Для SHORT: новый максимум
-                                        if (price > movingTPEntryStartPrice)
-                                        {
-                                            movingTPEntryStartPrice = price;
-                                            movingTPEntryTargetPrice = CalculateMovingTPEntryTarget(price, "SHORT", currentAtr, parameters);
-                                        }
+                                        movingTPEntryStartPrice = price;
+                                        movingTPEntryTargetPrice = CalculateMovingTPEntryTarget(price, "LONG", currentAtr, parameters);
+
+                                        _logger?.LogDebug($"[RsiBacktestEngine] 🔄 Moving TP Entry LONG: новый минимум {price:F2}, " +
+                                                          $"новая цель={movingTPEntryTargetPrice:F2}");
+                                    }
+                                }
+                                else if (movingTPEntryDirection == "SHORT")
+                                {
+                                    // Для SHORT: вход когда цена достигает цели (ниже или равна)
+                                    if (price <= movingTPEntryTargetPrice)
+                                    {
+                                        entryTriggered = true;
+                                        signal = "SHORT (Moving TP)";
+
+                                        _logger?.LogDebug($"[RsiBacktestEngine] 🎯 Moving TP Entry SHORT сработал: " +
+                                                          $"Цена={price:F2} <= Цель={movingTPEntryTargetPrice:F2}");
+                                    }
+                                    // ✅ ИСПРАВЛЕНО: Обновляем экстремум (новый максимум)
+                                    else if (price > movingTPEntryStartPrice)
+                                    {
+                                        movingTPEntryStartPrice = price;
+                                        movingTPEntryTargetPrice = CalculateMovingTPEntryTarget(price, "SHORT", currentAtr, parameters);
+
+                                        _logger?.LogDebug($"[RsiBacktestEngine] 🔄 Moving TP Entry SHORT: новый максимум {price:F2}, " +
+                                                          $"новая цель={movingTPEntryTargetPrice:F2}");
                                     }
                                 }
 
@@ -697,10 +736,11 @@ namespace MoneyGenerator_v5.Services
                                 if ((DateTime.Now - movingTPEntryStartTime).TotalMinutes > parameters.MovingTPEntryTimeoutMinutes)
                                 {
                                     movingTPEntryActive = false;
-                                    //Debug.WriteLine($"[RsiBacktestEngine] ⏰ Таймаут Moving TP Entry");
+                                    _logger?.LogDebug($"[RsiBacktestEngine] ⏰ Moving TP Entry таймаут");
                                 }
                             }
 
+                            // ✅ ИСПРАВЛЕНО: Выполнение входа при срабатывании
                             if (entryTriggered)
                             {
                                 decimal positionValueRub = _fixedPositionValue;
@@ -741,11 +781,27 @@ namespace MoneyGenerator_v5.Services
                             string exitReason = "";
                             decimal exitPrice = price;
 
+                            // ✅ ИСПРАВЛЕНО: Проверяем CloseOnSignalReversal для всех типов выхода
+                            bool shouldExitBySignalReversal = false;
+                            if (parameters.CloseOnSignalReversal)
+                            {
+                                if (positionDirection == "LONG" && isOverbought)
+                                {
+                                    shouldExitBySignalReversal = true;
+                                    exitReason = "Signal Reversal (Overbought)";
+                                }
+                                else if (positionDirection == "SHORT" && isOversold)
+                                {
+                                    shouldExitBySignalReversal = true;
+                                    exitReason = "Signal Reversal (Oversold)";
+                                }
+                            }
+
                             // Проверяем тип выхода
                             switch (parameters.ExitOrderType)
                             {
                                 case MoneyGenerator_v5.Strategies.OrderType.LevelCrossingExit:
-                                    // Выход по пересечению уровня
+                                    // ✅ Выход по пересечению уровня
                                     if (positionDirection == "LONG" && crossingAboveOverbought)
                                     {
                                         shouldExit = true;
@@ -756,7 +812,7 @@ namespace MoneyGenerator_v5.Services
                                         shouldExit = true;
                                         exitReason = "Level Crossing Exit (Oversold)";
                                     }
-                                    // Проверка защитного стоп-лосса для Level Crossing Exit
+                                    // ✅ ИСПРАВЛЕНО: Защитный стоп от цены входа (как в реальной стратегии)
                                     else if (positionDirection == "LONG" && price <= entryPrice * (1 - parameters.LevelCrossingExitProtectiveStopPercent / 100))
                                     {
                                         shouldExit = true;
@@ -770,7 +826,7 @@ namespace MoneyGenerator_v5.Services
                                     break;
 
                                 case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitExit:
-                                    // Скользящий тейк-профит на выходе
+                                    // ✅ Скользящий тейк-профит на выходе
                                     if (!movingTPExitActive)
                                     {
                                         // Инициализация
@@ -779,22 +835,34 @@ namespace MoneyGenerator_v5.Services
                                         movingTPExitTargetPrice = CalculateMovingTPExitTarget(entryPrice, positionDirection, currentAtr, parameters);
                                         movingTPExitStartTime = DateTime.Now;
                                         movingTPExitActive = true;
-                                        //Debug.WriteLine($"[RsiBacktestEngine] 📊 Moving TP Exit активирован: цель={movingTPExitTargetPrice:F2}");
+
+                                        _logger?.LogDebug($"[RsiBacktestEngine] 🔄 Moving TP Exit активирован: " +
+                                                          $"Entry={entryPrice:F2}, Target={movingTPExitTargetPrice:F2}");
                                     }
                                     else
                                     {
-                                        // Обновление уровня
-                                        if (positionDirection == "LONG" && price > movingTPExitCurrentLevel)
+                                        // ✅ ИСПРАВЛЕНО: Обновление уровня с учетом направления
+                                        if (positionDirection == "LONG")
                                         {
-                                            movingTPExitCurrentLevel = price;
-                                            movingTPExitTargetPrice = CalculateMovingTPExitTarget(price, "LONG", currentAtr, parameters);
-                                            //Debug.WriteLine($"[RsiBacktestEngine] 📈 Moving TP Exit LONG: новый уровень={price:F2}, цель={movingTPExitTargetPrice:F2}");
+                                            if (price > movingTPExitCurrentLevel)
+                                            {
+                                                movingTPExitCurrentLevel = price;
+                                                movingTPExitTargetPrice = CalculateMovingTPExitTarget(price, "LONG", currentAtr, parameters);
+
+                                                _logger?.LogDebug($"[RsiBacktestEngine] 🔼 Moving TP Exit LONG: новый максимум {price:F2}, " +
+                                                                  $"новая цель={movingTPExitTargetPrice:F2}");
+                                            }
                                         }
-                                        else if (positionDirection == "SHORT" && price < movingTPExitCurrentLevel)
+                                        else // SHORT
                                         {
-                                            movingTPExitCurrentLevel = price;
-                                            movingTPExitTargetPrice = CalculateMovingTPExitTarget(price, "SHORT", currentAtr, parameters);
-                                            //Debug.WriteLine($"[RsiBacktestEngine] 📉 Moving TP Exit SHORT: новый уровень={price:F2}, цель={movingTPExitTargetPrice:F2}");
+                                            if (price < movingTPExitCurrentLevel)
+                                            {
+                                                movingTPExitCurrentLevel = price;
+                                                movingTPExitTargetPrice = CalculateMovingTPExitTarget(price, "SHORT", currentAtr, parameters);
+
+                                                _logger?.LogDebug($"[RsiBacktestEngine] 🔽 Moving TP Exit SHORT: новый минимум {price:F2}, " +
+                                                                  $"новая цель={movingTPExitTargetPrice:F2}");
+                                            }
                                         }
 
                                         // Проверка достижения цели
@@ -815,26 +883,11 @@ namespace MoneyGenerator_v5.Services
                                             shouldExit = true;
                                             exitReason = "Moving TP Exit Timeout";
                                         }
-
-                                        // Закрытие при смене сигнала
-                                        if (parameters.CloseOnSignalReversal)
-                                        {
-                                            if (positionDirection == "LONG" && isOverbought)
-                                            {
-                                                shouldExit = true;
-                                                exitReason = "Signal Reversal (Overbought)";
-                                            }
-                                            else if (positionDirection == "SHORT" && isOversold)
-                                            {
-                                                shouldExit = true;
-                                                exitReason = "Signal Reversal (Oversold)";
-                                            }
-                                        }
                                     }
                                     break;
 
                                 case MoneyGenerator_v5.Strategies.OrderType.TrailingStopExit:
-                                    // Трейлинг-стоп на выходе
+                                    // ✅ Трейлинг-стоп на выходе
                                     if (!trailingStopActivated)
                                     {
                                         // Проверяем, достигнута ли активационная прибыль
@@ -847,7 +900,9 @@ namespace MoneyGenerator_v5.Services
                                             trailingStopActivated = true;
                                             trailingStopBestPrice = price;
                                             trailingStopCurrentLevel = CalculateTrailingStopLevel(price, positionDirection, currentAtr, parameters);
-                                            //Debug.WriteLine($"[RsiBacktestEngine] 🚀 Трейлинг-стоп активирован: {trailingStopCurrentLevel:F2}");
+
+                                            _logger?.LogDebug($"[RsiBacktestEngine] ✅ Трейлинг-стоп АКТИВИРОВАН: " +
+                                                              $"Прибыль={currentPnLPercent:F2}%, Стоп={trailingStopCurrentLevel:F2}");
                                         }
                                         // Защитный стоп до активации трейлинга
                                         else if (positionDirection == "LONG" && price <= entryPrice * (1 - parameters.ProtectiveStopPercent / 100))
@@ -868,13 +923,17 @@ namespace MoneyGenerator_v5.Services
                                         {
                                             trailingStopBestPrice = price;
                                             trailingStopCurrentLevel = CalculateTrailingStopLevel(price, "LONG", currentAtr, parameters);
-                                            //Debug.WriteLine($"[RsiBacktestEngine] 📈 Трейлинг-стоп повышен: {trailingStopCurrentLevel:F2}");
+
+                                            _logger?.LogDebug($"[RsiBacktestEngine] 🔼 Трейлинг-стоп LONG повышен: " +
+                                                              $"Best={trailingStopBestPrice:F2}, Стоп={trailingStopCurrentLevel:F2}");
                                         }
                                         else if (positionDirection == "SHORT" && price < trailingStopBestPrice)
                                         {
                                             trailingStopBestPrice = price;
                                             trailingStopCurrentLevel = CalculateTrailingStopLevel(price, "SHORT", currentAtr, parameters);
-                                            //Debug.WriteLine($"[RsiBacktestEngine] 📉 Трейлинг-стоп понижен: {trailingStopCurrentLevel:F2}");
+
+                                            _logger?.LogDebug($"[RsiBacktestEngine] 🔽 Трейлинг-стоп SHORT понижен: " +
+                                                              $"Best={trailingStopBestPrice:F2}, Стоп={trailingStopCurrentLevel:F2}");
                                         }
 
                                         // Проверка срабатывания трейлинг-стопа
@@ -893,7 +952,7 @@ namespace MoneyGenerator_v5.Services
 
                                 case MoneyGenerator_v5.Strategies.OrderType.Market:
                                 default:
-                                    // Обычный выход по тейк-профиту и стоп-лоссу
+                                    // ✅ Обычный выход по тейк-профиту и стоп-лоссу
                                     decimal takeProfitPrice = 0;
                                     decimal stopLossPrice = 0;
 
@@ -931,21 +990,14 @@ namespace MoneyGenerator_v5.Services
                                         shouldExit = true;
                                         exitReason = "Stop Loss";
                                     }
-                                    // Закрытие при смене сигнала
-                                    else if (parameters.CloseOnSignalReversal)
-                                    {
-                                        if (positionDirection == "LONG" && isOverbought)
-                                        {
-                                            shouldExit = true;
-                                            exitReason = "Signal Reversal (Overbought)";
-                                        }
-                                        else if (positionDirection == "SHORT" && isOversold)
-                                        {
-                                            shouldExit = true;
-                                            exitReason = "Signal Reversal (Oversold)";
-                                        }
-                                    }
                                     break;
+                            }
+
+                            // ✅ ИСПРАВЛЕНО: Проверяем смену сигнала после всех других проверок
+                            if (!shouldExit && shouldExitBySignalReversal)
+                            {
+                                shouldExit = true;
+                                // exitReason уже установлен
                             }
 
                             // ============================================================
@@ -1053,16 +1105,6 @@ namespace MoneyGenerator_v5.Services
                     _logger?.LogDebug($"[RsiBacktestEngine] 📉 Принудительный выход: P&L={pnlAfterCommission:F2}, баланс={balance:F2}");
                 }
 
-                // ЛОГИРУЕМ СТАТИСТИКУ
-                _logger?.LogInformation($"[RsiBacktestEngine] 📊 Статистика симуляции:");
-                _logger?.LogInformation($"    - Фиксированная позиция: {_fixedPositionValue:F2} RUB");
-                _logger?.LogInformation($"    - Сделок: {trades.Count}");
-                _logger?.LogInformation($"    - Итоговый баланс: {balance:F2} RUB");
-                _logger?.LogInformation($"    - P&L: {balance - INITIAL_BALANCE:F2} RUB");
-                _logger?.LogInformation($"    - WinRate: {(trades.Count > 0 ? (decimal)winningTrades / trades.Count * 100 : 0):F1}%");
-                _logger?.LogInformation($"    - Макс. просадка: {maxDrawdown:F1}%");
-                _logger?.LogInformation($"    - Время выполнения: {stopwatch.ElapsedMilliseconds} мс");
-
                 // ФОРМИРУЕМ РЕЗУЛЬТАТ
                 result.NetProfit = balance - INITIAL_BALANCE;
                 result.GrossProfit = totalProfit;
@@ -1141,7 +1183,7 @@ namespace MoneyGenerator_v5.Services
                 case PriceCalculationType.Percentage:
                     return entryPrice * (parameters.TakeProfitPercent / 100);
                 case PriceCalculationType.ATR:
-                    return atr * parameters.AtrMultiplier;
+                    return atr * parameters.TakeProfitAtrMultiplier;
                 default:
                     return entryPrice * 0.02m;
             }
@@ -1154,45 +1196,135 @@ namespace MoneyGenerator_v5.Services
                 case PriceCalculationType.Percentage:
                     return entryPrice * (parameters.StopLossPercent / 100);
                 case PriceCalculationType.ATR:
-                    return atr * parameters.AtrMultiplier;
+                    return atr * parameters.StopLossAtrMultiplier;
                 default:
                     return entryPrice * 0.01m;
             }
         }
 
+        /// <summary>
+        /// Расчет уровня активации скользящего TP на входе
+        /// ✅ ИСПРАВЛЕНО: правильная логика с учетом ЦЕЛИ и ОТСТУПА
+        /// </summary>
         private decimal CalculateMovingTPEntryTarget(decimal price, string direction, decimal atr, RsiStrategyParams parameters)
         {
-            decimal offset = parameters.MovingTPEntryCalculationType switch
-            {
-                PriceCalculationType.Percentage => price * (parameters.MovingTPEntryTargetPercent / 100),
-                PriceCalculationType.ATR => atr * parameters.AtrMultiplier,
-                _ => price * 0.02m
-            };
+            decimal target = 0;
+            decimal offset = 0;
 
-            return direction == "LONG" ? price + offset : price - offset;
+            // ✅ РАСЧЕТ ЦЕЛИ в зависимости от типа расчета
+            switch (parameters.MovingTPEntryCalculationType)
+            {
+                case PriceCalculationType.Percentage:
+                    // ЦЕЛЬ: цена +/− процент от цены
+                    target = price * (1 + (direction == "LONG" ? 1 : -1) * parameters.MovingTPEntryTargetPercent / 100);
+                    // ОТСТУП: дополнительный отступ от экстремума
+                    offset = price * (parameters.MovingTPEntryOffsetPercent / 100);
+                    break;
+
+                case PriceCalculationType.ATR:
+                    // ✅ ЦЕЛЬ: цена +/− множитель ATR (используем MovingTPEntryTargetAtrMultiplier)
+                    target = price + (direction == "LONG" ? 1 : -1) * atr * parameters.MovingTPEntryTargetAtrMultiplier;
+                    // ✅ ОТСТУП: дополнительный отступ от экстремума (используем MovingTPEntryOffsetAtrMultiplier)
+                    offset = atr * parameters.MovingTPEntryOffsetAtrMultiplier;
+                    break;
+
+                case PriceCalculationType.Absolute:
+                    // ЦЕЛЬ: цена +/− абсолютное значение
+                    target = price + (direction == "LONG" ? 1 : -1) * parameters.MovingTPEntryTargetAbsolute;
+                    // ОТСТУП: дополнительный отступ от экстремума
+                    offset = parameters.MovingTPEntryOffsetAbsolute;
+                    break;
+
+                default:
+                    target = price * 1.02m;
+                    offset = price * 0.005m;
+                    break;
+            }
+
+            // ✅ ПРИМЕНЯЕМ ОТСТУП к целевой цене
+            if (direction == "LONG")
+            {
+                // Для LONG: цель = target + offset (цена должна вырасти еще на offset)
+                target = target + offset;
+            }
+            else // SHORT
+            {
+                // Для SHORT: цель = target - offset (цена должна упасть еще на offset)
+                target = target - offset;
+            }
+
+            // ✅ Проверка: цель не должна быть равна или хуже текущей цены
+            if (direction == "LONG" && target <= price)
+            {
+                // Если цель ниже или равна цене, корректируем
+                target = price * (1 + 0.01m); // Минимум 1% выше
+            }
+            else if (direction == "SHORT" && target >= price)
+            {
+                // Если цель выше или равна цене, корректируем
+                target = price * (1 - 0.01m); // Минимум 1% ниже
+            }
+
+            return target;
         }
 
+        /// <summary>
+        /// Расчет уровня активации скользящего TP на выходе
+        /// ✅ ИСПРАВЛЕНО: правильная логика для LONG и SHORT
+        /// </summary>
         private decimal CalculateMovingTPExitTarget(decimal price, string direction, decimal atr, RsiStrategyParams parameters)
         {
-            decimal offset = parameters.MovingTPExitCalculationType switch
-            {
-                PriceCalculationType.Percentage => price * (parameters.MovingTPExitStartPercent / 100),
-                PriceCalculationType.ATR => atr * parameters.AtrMultiplier,
-                _ => price * 0.02m
-            };
+            decimal distance = 0;
 
-            return direction == "LONG" ? price - offset : price + offset;
+            // Расчет дистанции до цели
+            switch (parameters.MovingTPExitCalculationType)
+            {
+                case PriceCalculationType.Percentage:
+                    // Для LONG: цена должна упасть на X% от текущей цены
+                    // Для SHORT: цена должна вырасти на X% от текущей цены
+                    distance = price * (parameters.MovingTPExitTargetPercent / 100);
+                    break;
+
+                case PriceCalculationType.ATR:
+                    // Для LONG: цена должна упасть на ATR * множитель
+                    // Для SHORT: цена должна вырасти на ATR * множитель
+                    distance = atr * parameters.MovingTPExitTargetAtrMultiplier;
+                    break;
+
+                case PriceCalculationType.Absolute:
+                    // Для LONG: цена должна упасть на абсолютное значение
+                    // Для SHORT: цена должна вырасти на абсолютное значение
+                    distance = parameters.MovingTPExitTargetAbsolute;
+                    break;
+
+                default:
+                    distance = price * 0.01m; // 1% по умолчанию
+                    break;
+            }
+
+            // Минимальная дистанция (0.1% от цены)
+            decimal minDistance = price * 0.001m;
+            if (distance < minDistance)
+                distance = minDistance;
+
+            // ✅ ИСПРАВЛЕНО: Правильный расчет цели
+            // Для LONG: выход при падении цены на distance от текущего максимума
+            // Для SHORT: выход при росте цены на distance от текущего минимума
+            if (direction == "LONG")
+                return price - distance;
+            else // SHORT
+                return price + distance;
         }
+
 
         private decimal CalculateTrailingStopLevel(decimal price, string direction, decimal atr, RsiStrategyParams parameters)
         {
             decimal distance = parameters.TrailingStopExitCalculationType switch
             {
                 PriceCalculationType.Percentage => price * (parameters.TrailingStopExitDistancePercent / 100),
-                PriceCalculationType.ATR => atr * parameters.AtrMultiplier,
+                PriceCalculationType.ATR => atr * parameters.TrailingStopAtrMultiplier,
                 _ => price * 0.01m
             };
-
             return direction == "LONG" ? price - distance : price + distance;
         }
 
@@ -1225,46 +1357,64 @@ namespace MoneyGenerator_v5.Services
             public MoneyGenerator_v5.Strategies.OrderType ExitOrderType { get; set; } = MoneyGenerator_v5.Strategies.OrderType.Market;
             public decimal ExitSlippage { get; set; } = 0.01m;
 
-            // Moving Take Profit Entry
+            // Moving Take Profit Entry - ЦЕЛЬ
             public PriceCalculationType MovingTPEntryCalculationType { get; set; } = PriceCalculationType.ATR;
             public decimal MovingTPEntryTargetPercent { get; set; } = 2.0m;
+            public decimal MovingTPEntryTargetAbsolute { get; set; } = 10.0m;
+            public decimal MovingTPEntryTargetAtrMultiplier { get; set; } = 1.5m;
             public decimal MovingTPEntrySlippage { get; set; } = 0.01m;
             public int MovingTPEntryTimeoutMinutes { get; set; } = 60;
 
-            // Moving Take Profit Exit
+            // ✅ ДОБАВЛЯЕМ: Moving Take Profit Entry - ОТСТУП от мин/макс
+            public decimal MovingTPEntryOffsetPercent { get; set; } = 0.5m;
+            public decimal MovingTPEntryOffsetAbsolute { get; set; } = 2.0m;
+            public decimal MovingTPEntryOffsetAtrMultiplier { get; set; } = 0.5m;
+
+            // Moving Take Profit Exit - ЦЕЛЬ
             public PriceCalculationType MovingTPExitCalculationType { get; set; } = PriceCalculationType.ATR;
-            public decimal MovingTPExitStartPercent { get; set; } = 2.0m;
+            public decimal MovingTPExitTargetPercent { get; set; } = 2.0m;
+            public decimal MovingTPExitTargetAbsolute { get; set; } = 10.0m;
+            public decimal MovingTPExitTargetAtrMultiplier { get; set; } = 1.5m;
             public decimal MovingTPExitSlippage { get; set; } = 0.01m;
             public int MovingTPExitTimeoutMinutes { get; set; } = 60;
+
+            // ✅ ДОБАВЛЯЕМ: Moving Take Profit Exit - ОТСТУП от мин/макс
+            public decimal MovingTPExitOffsetPercent { get; set; } = 0.5m;
+            public decimal MovingTPExitOffsetAbsolute { get; set; } = 2.0m;
+            public decimal MovingTPExitOffsetAtrMultiplier { get; set; } = 0.5m;
 
             // Trailing Stop Exit
             public PriceCalculationType TrailingStopExitCalculationType { get; set; } = PriceCalculationType.ATR;
             public decimal TrailingStopExitDistancePercent { get; set; } = 0.5m;
-            public decimal TrailingStopExitSlippage { get; set; } = 0.01m;
+            public decimal TrailingStopExitDistanceAbsolute { get; set; } = 2.0m;
+            public decimal TrailingStopAtrMultiplier { get; set; } = 1.5m;
             public decimal TrailingStopExitActivationPercent { get; set; } = 1.0m;
             public decimal ProtectiveStopPercent { get; set; } = 0.5m;
 
-            // Take Profit / Stop Loss
+            // Level Crossing Entry
+            public decimal LevelCrossingEntryProtectiveStopPercent { get; set; } = 0.25m;
+            public decimal LevelCrossingEntryProtectiveStopDistancePercent { get; set; } = 0.25m;
+
+            // Level Crossing Exit
+            public decimal LevelCrossingExitProtectiveStopPercent { get; set; } = 0.25m;
+            public decimal LevelCrossingExitProtectiveStopDistancePercent { get; set; } = 0.25m;
+
+            // Take Profit / Stop Loss (для Market выхода)
             public PriceCalculationType TakeProfitCalculationType { get; set; } = PriceCalculationType.ATR;
             public decimal TakeProfitPercent { get; set; } = 2.0m;
+            public decimal TakeProfitAtrMultiplier { get; set; } = 1.5m;
             public decimal TakeProfitActivationPrice { get; set; } = 0m;
             public decimal TakeProfitSlippage { get; set; } = 0.01m;
 
             public PriceCalculationType StopLossCalculationType { get; set; } = PriceCalculationType.ATR;
             public decimal StopLossPercent { get; set; } = 1.0m;
+            public decimal StopLossAtrMultiplier { get; set; } = 1.5m;
             public decimal StopLossActivationPrice { get; set; } = 0m;
             public decimal StopLossSlippage { get; set; } = 0.01m;
 
             // Общие
-            public decimal AtrMultiplier { get; set; } = 1.5m;
             public decimal OrderSizePercent { get; set; } = 10m;
             public bool CloseOnSignalReversal { get; set; } = false;
-
-            // Level Crossing
-            public decimal LevelCrossingEntryProtectiveStopPercent { get; set; } = 0.25m;
-            public decimal LevelCrossingEntryProtectiveStopDistancePercent { get; set; } = 0.25m;
-            public decimal LevelCrossingExitProtectiveStopPercent { get; set; } = 0.25m;
-            public decimal LevelCrossingExitProtectiveStopDistancePercent { get; set; } = 0.25m;
         }
 
         private class SimulationResult

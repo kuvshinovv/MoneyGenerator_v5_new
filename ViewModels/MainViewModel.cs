@@ -2691,7 +2691,12 @@ namespace MoneyGenerator_v5.ViewModels
                             parameters["ExitSlippage"] = rsiParams.ExitSlippage;
                             parameters["CloseOnSignalReversal"] = rsiParams.CloseOnSignalReversal;
                             parameters["OrderSizePercent"] = rsiParams.OrderSizePercent;
-                            parameters["AtrMultiplier"] = rsiParams.AtrMultiplier;
+                            //parameters["AtrMultiplier"] = rsiParams.AtrMultiplier;
+
+                            parameters["AtrOffSetMultiplierEntry"] = rsiParams.AtrOffSetMultiplierEntry;
+                            parameters["AtrOffSetMultiplierExit"] = rsiParams.AtrOffSetMultiplierExit;
+
+
                             parameters["MovingTPEntryCalculationType"] = (int)rsiParams.MovingTPEntryCalculationType;
                             parameters["MovingTPEntryTargetPercent"] = rsiParams.MovingTPEntryTargetPercent;
                             parameters["MovingTPEntrySlippage"] = rsiParams.MovingTPEntrySlippage;
@@ -3333,8 +3338,18 @@ namespace MoneyGenerator_v5.ViewModels
                                 rsiParams.CloseOnSignalReversal = closeOnSignal.GetBoolean();
                             if (root.TryGetProperty("OrderSizePercent", out var orderSize))
                                 rsiParams.OrderSizePercent = orderSize.GetDecimal();
-                            if (root.TryGetProperty("AtrMultiplier", out var atrMultiplier))
-                                rsiParams.AtrMultiplier = atrMultiplier.GetDecimal();
+                            //if (root.TryGetProperty("AtrMultiplier", out var atrMultiplier))
+                             //   rsiParams.AtrMultiplier = atrMultiplier.GetDecimal();
+
+
+                            if (root.TryGetProperty("atrOffSetMultiplierEntry", out var atrOffSetMultiplierEntry))
+                                rsiParams.AtrOffSetMultiplierEntry  = atrOffSetMultiplierEntry.GetDecimal();
+
+                            if (root.TryGetProperty("AtrOffSetMultiplierExit", out var atrOffSetMultiplierExit))
+                                rsiParams.AtrOffSetMultiplierExit = atrOffSetMultiplierExit.GetDecimal();
+
+
+
 
                             // Параметры скользящего TP на входе
                             if (root.TryGetProperty("MovingTPEntryCalculationType", out var movingTPEntryCalc))

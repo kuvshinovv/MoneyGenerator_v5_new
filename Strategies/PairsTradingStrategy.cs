@@ -2403,7 +2403,7 @@ namespace MoneyGenerator_v5.Strategies
         #endregion
 
         #region Обработчики событий
-        private void OnParametersChanged(PairsTradingParameters parameters)
+        public void OnParametersChanged(PairsTradingParameters parameters)
         {
             //Debug.WriteLine($"[PairsTrading] 🔄 ПАРАМЕТРЫ ИЗМЕНЕНЫ:");
             //Debug.WriteLine($"[PairsTrading]   Первый инструмент: {parameters.FirstInstrumentTicker}");

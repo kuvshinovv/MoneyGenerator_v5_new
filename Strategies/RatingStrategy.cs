@@ -1465,7 +1465,7 @@ namespace MoneyGenerator_v5.Strategies
             }
         }
 
-        private void OnParametersChanged()
+        public void OnParametersChanged()
         {
             UpdatePeriodsFromSettings();
             _ = Task.Run(async () =>

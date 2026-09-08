@@ -48,7 +48,7 @@ namespace MoneyGenerator_v5.ViewModels
         private IBacktestEngine _backtestEngine;
 
         // лимит на количество хранимых результатов (например, топ-1000 лучших)
-        private const int MAX_RESULTS_TO_KEEP = 1000;
+        private const int MAX_RESULTS_TO_KEEP = 100000;
 
        
 
@@ -148,6 +148,8 @@ namespace MoneyGenerator_v5.ViewModels
         public ICommand RestoreOriginalParametersCommand { get; }
 
         public event Action<Dictionary<string, decimal>> ParametersApplied;
+        public event Action OnParametersAppliedToStrategy;
+
 
         #endregion
 
@@ -302,10 +304,11 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine("[AddPairsTradingParameters] КОНЕЦ");
         }
 
+
+
         /// <summary>
         /// Добавляет параметры для оптимизации RSI стратегии
-        /// ВЫВОДИТ ТОЛЬКО ТЕ ПАРАМЕТРЫ, КОТОРЫЕ РЕАЛЬНО ИСПОЛЬЗУЮТСЯ В СТРАТЕГИИ
-        /// НАЗВАНИЯ ПАРАМЕТРОВ СОВПАДАЮТ С НАЗВАНИЯМИ В СТРАТЕГИИ
+        /// ✅ ИСПРАВЛЕНО: используем НОВЫЕ поля для ATR параметров
         /// </summary>
         private void AddRsiParameters()
         {
@@ -325,28 +328,29 @@ namespace MoneyGenerator_v5.ViewModels
             }
 
             // ============================================================
-            // 1. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА - ТОЛЬКО ВЫБРАННЫЙ ТИП
+            // 0. КОНСТАНТНЫЕ ПАРАМЕТРЫ - ВСЕГДА ПЕРЕДАЮТСЯ В БЭКТЕСТ
             // ============================================================
+            AddConstantParameter("EntryOrderType", (decimal)rsiParams.EntryOrderType);
+            AddConstantParameter("ExitOrderType", (decimal)rsiParams.ExitOrderType);
+            AddConstantParameter("CloseOnSignalReversal", rsiParams.CloseOnSignalReversal ? 1 : 0);
+            AddConstantParameter("EntrySlippage", rsiParams.EntrySlippage);
+            AddConstantParameter("ExitSlippage", rsiParams.ExitSlippage);
+            AddConstantParameter("MovingTPEntryTimeoutMinutes", rsiParams.MovingTPEntryTimeoutMinutes);
+            AddConstantParameter("MovingTPExitTimeoutMinutes", rsiParams.MovingTPExitTimeoutMinutes);
+            AddConstantParameter("MovingTPEntrySlippage", rsiParams.MovingTPEntrySlippage);
+            AddConstantParameter("MovingTPExitSlippage", rsiParams.MovingTPExitSlippage);
 
-            
-
-            // ✅ Параметры ВЫБРАННОГО осциллятора (названия как в стратегии)
+            // ============================================================
+            // 1. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА
+            // ============================================================
             if (rsiParams.OscillatorType == OscillatorType.StochRSI)
             {
                 Debug.WriteLine("[AddRsiParameters] Добавление параметров StochRSI");
-                // Для StochRSI используем те же названия, что и в стратегии
-                //AddParameter("StochPeriod", "Период StochRSI", rsiParams.StochPeriod, 5, 50, 1);
-                //AddParameter("StochOverbought", "Перекупленность StochRSI", rsiParams.StochOverbought, 60, 90, 1);
-                //AddParameter("StochOversold", "Перепроданность StochRSI", rsiParams.StochOversold, 10, 40, 1);
-                //AddParameter("StochSmoothK", "Сглаживание K StochRSI", rsiParams.StochSmoothK, 1, 10, 1);
-                //AddParameter("StochSmoothD", "Сглаживание D StochRSI", rsiParams.StochSmoothD, 1, 10, 1);
-
-                // ✅ Базовые параметры RSI 
                 AddParameter("RsiPeriod", "Период RSI", rsiParams.RsiPeriod, 5, 50, 1);
                 AddParameter("RsiOverbought", "Перекупленность RSI", rsiParams.RsiOverbought, 60, 90, 1);
                 AddParameter("RsiOversold", "Перепроданность RSI", rsiParams.RsiOversold, 10, 40, 1);
             }
-            else // Stochastic
+            else // Stochastic Oscillator
             {
                 Debug.WriteLine("[AddRsiParameters] Добавление параметров Stochastic");
                 AddParameter("StochPeriod", "Период Stochastic", rsiParams.StochPeriod, 5, 50, 1);
@@ -357,151 +361,165 @@ namespace MoneyGenerator_v5.ViewModels
             }
 
             // ============================================================
-            // 2. ПАРАМЕТРЫ ВХОДА - ТОЛЬКО ВЫБРАННЫЙ ТИП
+            // 2. РАЗМЕР ПОЗИЦИИ
             // ============================================================
+            AddParameter("OrderSizePercent", "Размер позиции (% от депозита)",
+                rsiParams.OrderSizePercent, 1, 50, 1);
 
-            // Размер позиции - всегда нужен (название как в стратегии)
-            //AddParameter("OrderSizePercent", "Размер позиции (% от депозита)", rsiParams.OrderSizePercent, 1, 50, 1);
-
-            // Проскальзывание входа - всегда нужно (название как в стратегии)
-            //AddParameter("EntrySlippage", "Проскальзывание входа (%)", rsiParams.EntrySlippage, 0, 1, 0.01m);
-
-            // ✅ Параметры в зависимости от типа входа
+            // ============================================================
+            // 3. ПАРАМЕТРЫ ВХОДА - ТОЛЬКО ВЫБРАННЫЙ ТИП
+            // ============================================================
             switch (rsiParams.EntryOrderType)
             {
                 case MoneyGenerator_v5.Strategies.OrderType.Market:
-                    Debug.WriteLine("[AddRsiParameters] Тип входа: Market - дополнительные параметры не требуются");
+                    Debug.WriteLine("[AddRsiParameters] Тип входа: Market - НЕТ параметров");
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.Limit:
                     Debug.WriteLine("[AddRsiParameters] Тип входа: Limit");
-                    AddParameter("EntryLimitOffsetPercent", "Смещение Limit (%)", rsiParams.EntryLimitOffsetPercent, 0.01m, 5, 0.01m);
+                    AddParameter("EntryLimitOffsetPercent", "Смещение Limit входа (%)",
+                        rsiParams.EntryLimitOffsetPercent, 0.01m, 5, 0.01m);
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.StopLimit:
                     Debug.WriteLine("[AddRsiParameters] Тип входа: StopLimit");
-                    AddParameter("EntryStopOffsetPercent", "Смещение StopLimit (%)", rsiParams.EntryStopOffsetPercent, 0.01m, 5, 0.01m);
+                    AddParameter("EntryStopOffsetPercent", "Смещение StopLimit входа (%)",
+                        rsiParams.EntryStopOffsetPercent, 0.01m, 5, 0.01m);
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitEntry:
                     Debug.WriteLine("[AddRsiParameters] Тип входа: MovingTakeProfitEntry");
-                    AddParameter("MovingTPEntryCalculationType", "Расчет TP входа", (int)rsiParams.MovingTPEntryCalculationType, 0, 2, 1);
-                    AddParameter("MovingTPEntryTargetPercent", "Цель TP входа (%)", rsiParams.MovingTPEntryTargetPercent, 0.1m, 10, 0.1m);
-                    //AddParameter("MovingTPEntrySlippage", "Проскальзывание TP входа", rsiParams.MovingTPEntrySlippage, 0, 1, 0.01m);
-                    //AddParameter("MovingTPEntryTimeoutMinutes", "Таймаут TP входа (мин)", rsiParams.MovingTPEntryTimeoutMinutes, 1, 1440, 5);
+
+                    // ✅ Добавляем тип расчета
+                    AddConstantParameter("MovingTPEntryCalculationType", (decimal)rsiParams.MovingTPEntryCalculationType);
+
+                    // ✅ ЦЕЛЬ (Target) - в зависимости от выбранного типа расчета
+                    switch (rsiParams.MovingTPEntryCalculationType)
+                    {
+                        case PriceCalculationType.Percentage:
+                            AddParameter("MovingTPEntryTargetPercent", "ЦЕЛЬ TP входа (%)",
+                                rsiParams.MovingTPEntryTargetPercent, 0.1m, 10, 0.1m);
+
+                            AddParameter("MovingTPEntryOffsetPercent", "ОТСТУП TP входа от мин/макс (%)",
+                                rsiParams.MovingTPEntryOffsetPercent, 0.1m, 5, 0.1m);
+                            break;
+
+                        case PriceCalculationType.ATR:
+                            // ✅ ИСПРАВЛЕНО: используем НОВОЕ поле MovingTPEntryAtrMultiplier
+                            AddParameter("MovingTPEntryTargetAtrMultiplier", "ЦЕЛЬ TP входа (множитель ATR)",
+                                rsiParams.MovingTPEntryAtrMultiplier, 0.5m, 5, 0.25m);
+
+                            AddParameter("MovingTPEntryOffsetAtrMultiplier", "ОТСТУП TP входа от мин/макс (множитель ATR)",
+                                rsiParams.MovingTPEntryAtrMultiplier * 0.5m, 0.1m, 3, 0.1m);
+                            break;
+
+                        case PriceCalculationType.Absolute:
+                            AddParameter("MovingTPEntryTargetAbsolute", "ЦЕЛЬ TP входа (абс.)",
+                                rsiParams.MovingTPEntryTargetAbsolute, 0.1m, 100, 0.1m);
+
+                            AddParameter("MovingTPEntryOffsetAbsolute", "ОТСТУП TP входа от мин/макс (абс.)",
+                                rsiParams.MovingTPEntryOffsetAbsolute, 0.1m, 50, 0.1m);
+                            break;
+                    }
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.LevelCrossingEntry:
                     Debug.WriteLine("[AddRsiParameters] Тип входа: LevelCrossingEntry");
-                    AddParameter("LevelCrossingEntryProtectiveStopPercent", "Защитный стоп входа (%)", rsiParams.LevelCrossingEntryProtectiveStopPercent, 0.05m, 2, 0.05m);
-                    AddParameter("LevelCrossingEntryProtectiveStopDistancePercent", "Мин. дистанция стопа входа (%)", rsiParams.LevelCrossingEntryProtectiveStopDistancePercent, 0.05m, 2, 0.05m);
-                    break;
 
-                default:
-                    Debug.WriteLine($"[AddRsiParameters] Неизвестный тип входа: {rsiParams.EntryOrderType}");
+                    AddParameter("LevelCrossingEntryProtectiveStopPercent", "Защитный стоп входа (%)",
+                        rsiParams.LevelCrossingEntryProtectiveStopPercent, 0.05m, 5, 0.05m);
+
+                    AddParameter("LevelCrossingEntryProtectiveStopDistancePercent", "Отступ стопа входа от мин/макс (%)",
+                        rsiParams.LevelCrossingEntryProtectiveStopDistancePercent, 0.05m, 5, 0.05m);
                     break;
             }
 
             // ============================================================
-            // 3. ПАРАМЕТРЫ ВЫХОДА - ТОЛЬКО ВЫБРАННЫЙ ТИП
+            // 4. ПАРАМЕТРЫ ВЫХОДА - ТОЛЬКО ВЫБРАННЫЙ ТИП
             // ============================================================
-
-            // Проскальзывание выхода - всегда нужно (название как в стратегии)
-            AddParameter("ExitSlippage", "Проскальзывание выхода (%)", rsiParams.ExitSlippage, 0, 1, 0.01m);
-
-            // Закрытие при смене сигнала - всегда доступно (название как в стратегии)
-            AddParameter("CloseOnSignalReversal", "Закрывать при смене сигнала", rsiParams.CloseOnSignalReversal ? 1 : 0, 0, 1, 1);
-
-            // ✅ Параметры в зависимости от типа выхода
             switch (rsiParams.ExitOrderType)
             {
                 case MoneyGenerator_v5.Strategies.OrderType.Market:
-                    Debug.WriteLine("[AddRsiParameters] Тип выхода: Market - дополнительные параметры не требуются");
-                    /*AddParameter("TakeProfitCalculationType", "Расчет тейк-профита", (int)rsiParams.TakeProfitCalculationType, 0, 2, 1);
-                    AddParameter("TakeProfitPercent", "Тейк-профит (%)", rsiParams.TakeProfitPercent, 0.1m, 10, 0.1m);
-                    AddParameter("TakeProfitActivationPrice", "Цена активации TP", rsiParams.TakeProfitActivationPrice, 0, 100, 0.1m);
-                    AddParameter("TakeProfitSlippage", "Проскальзывание TP", rsiParams.TakeProfitSlippage, 0, 1, 0.01m);
-                    AddParameter("StopLossCalculationType", "Расчет стоп-лосса", (int)rsiParams.StopLossCalculationType, 0, 2, 1);
-                    AddParameter("StopLossPercent", "Стоп-лосс (%)", rsiParams.StopLossPercent, 0.1m, 5, 0.1m);
-                    AddParameter("StopLossActivationPrice", "Цена активации SL", rsiParams.StopLossActivationPrice, 0, 100, 0.1m);
-                    AddParameter("StopLossSlippage", "Проскальзывание SL", rsiParams.StopLossSlippage, 0, 1, 0.01m);*/
+                    Debug.WriteLine("[AddRsiParameters] Тип выхода: Market");
+
+                    AddParameter("TakeProfitPercent", "Тейк-профит (%)",
+                        rsiParams.TakeProfitPercent, 0.1m, 10, 0.1m);
+                    AddParameter("StopLossPercent", "Стоп-лосс (%)",
+                        rsiParams.StopLossPercent, 0.1m, 5, 0.1m);
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitExit:
                     Debug.WriteLine("[AddRsiParameters] Тип выхода: MovingTakeProfitExit");
-                    AddParameter("MovingTPExitCalculationType", "Расчет TP выхода", (int)rsiParams.MovingTPExitCalculationType, 0, 2, 1);
-                    AddParameter("MovingTPExitStartPercent", "Стартовый TP выхода (%)", rsiParams.MovingTPExitStartPercent, 0.1m, 10, 0.1m);
-                    //AddParameter("MovingTPExitSlippage", "Проскальзывание TP выхода", rsiParams.MovingTPExitSlippage, 0, 1, 0.01m);
-                    //AddParameter("MovingTPExitTimeoutMinutes", "Таймаут TP выхода (мин)", rsiParams.MovingTPExitTimeoutMinutes, 1, 1440, 5);
+
+                    AddConstantParameter("MovingTPExitCalculationType", (decimal)rsiParams.MovingTPExitCalculationType);
+
+                    switch (rsiParams.MovingTPExitCalculationType)
+                    {
+                        case PriceCalculationType.Percentage:
+                            AddParameter("MovingTPExitTargetPercent", "ЦЕЛЬ TP выхода (%)",
+                                rsiParams.MovingTPExitStartPercent, 0.1m, 10, 0.1m);
+
+                            AddParameter("MovingTPExitOffsetPercent", "ОТСТУП TP выхода от мин/макс (%)",
+                                rsiParams.MovingTPExitOffsetPercent, 0.1m, 5, 0.1m);
+                            break;
+
+                        case PriceCalculationType.ATR:
+                            // ✅ ИСПРАВЛЕНО: используем НОВОЕ поле MovingTPExitAtrMultiplier
+                            AddParameter("MovingTPExitTargetAtrMultiplier", "ЦЕЛЬ TP выхода (множитель ATR)",
+                                rsiParams.MovingTPExitAtrMultiplier, 0.5m, 5, 0.25m);
+
+                            AddParameter("MovingTPExitOffsetAtrMultiplier", "ОТСТУП TP выхода от мин/макс (множитель ATR)",
+                                rsiParams.MovingTPExitAtrMultiplier * 0.5m, 0.1m, 3, 0.1m);
+                            break;
+
+                        case PriceCalculationType.Absolute:
+                            AddParameter("MovingTPExitTargetAbsolute", "ЦЕЛЬ TP выхода (абс.)",
+                                rsiParams.MovingTPExitStartAbsolute, 0.1m, 100, 0.1m);
+
+                            AddParameter("MovingTPExitOffsetAbsolute", "ОТСТУП TP выхода от мин/макс (абс.)",
+                                rsiParams.MovingTPExitOffsetAbsolute, 0.1m, 50, 0.1m);
+                            break;
+                    }
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.TrailingStopExit:
                     Debug.WriteLine("[AddRsiParameters] Тип выхода: TrailingStopExit");
-                    AddParameter("TrailingStopExitCalculationType", "Расчет трейлинг-стопа", (int)rsiParams.TrailingStopExitCalculationType, 0, 2, 1);
-                    AddParameter("TrailingStopExitDistancePercent", "Дистанция трейлинг-стопа (%)", rsiParams.TrailingStopExitDistancePercent, 0.1m, 5, 0.1m);
-                    //AddParameter("TrailingStopExitSlippage", "Проскальзывание трейлинг-стопа", rsiParams.TrailingStopExitSlippage, 0, 1, 0.01m);
-                    AddParameter("TrailingStopExitActivationPercent", "Активация трейлинг-стопа (%)", rsiParams.TrailingStopExitActivationPercent, 0.1m, 10, 0.1m);
-                    AddParameter("ProtectiveStopPercent", "Защитный стоп (%)", rsiParams.ProtectiveStopPercent, 0.1m, 5, 0.1m);
+
+                    AddParameter("ProtectiveStopPercent", "Защитный стоп выхода (%)",
+                        rsiParams.ProtectiveStopPercent, 0.1m, 5, 0.1m);
+
+                    AddParameter("TrailingStopExitActivationPercent", "Активация трейлинг-стопа (% прибыли)",
+                        rsiParams.TrailingStopExitActivationPercent, 0.1m, 10, 0.1m);
+
+                    switch (rsiParams.TrailingStopExitCalculationType)
+                    {
+                        case PriceCalculationType.Percentage:
+                            AddParameter("TrailingStopExitDistancePercent", "Отступ трейлинг-стопа (%)",
+                                rsiParams.TrailingStopExitDistancePercent, 0.1m, 5, 0.1m);
+                            break;
+
+                        case PriceCalculationType.ATR:
+                            // ✅ ИСПРАВЛЕНО: используем НОВОЕ поле MovingTPExitAtrMultiplier
+                            AddParameter("TrailingStopAtrMultiplier", "Отступ трейлинг-стопа (множитель ATR)",
+                                rsiParams.MovingTPExitAtrMultiplier, 0.5m, 5, 0.25m);
+                            break;
+
+                        case PriceCalculationType.Absolute:
+                            AddParameter("TrailingStopExitDistanceAbsolute", "Отступ трейлинг-стопа (абс.)",
+                                rsiParams.TrailingStopExitDistanceAbsolute, 0.1m, 100, 0.1m);
+                            break;
+                    }
                     break;
 
                 case MoneyGenerator_v5.Strategies.OrderType.LevelCrossingExit:
                     Debug.WriteLine("[AddRsiParameters] Тип выхода: LevelCrossingExit");
-                    AddParameter("LevelCrossingExitProtectiveStopPercent", "Защитный стоп выхода (%)", rsiParams.LevelCrossingExitProtectiveStopPercent, 0.05m, 2, 0.05m);
-                    AddParameter("LevelCrossingExitProtectiveStopDistancePercent", "Мин. дистанция стопа выхода (%)", rsiParams.LevelCrossingExitProtectiveStopDistancePercent, 0.05m, 2, 0.05m);
+
+                    AddParameter("LevelCrossingExitProtectiveStopPercent", "Защитный стоп выхода (%)",
+                        rsiParams.LevelCrossingExitProtectiveStopPercent, 0.05m, 5, 0.05m);
+
+                    AddParameter("LevelCrossingExitProtectiveStopDistancePercent", "Отступ стопа выхода от мин/макс (%)",
+                        rsiParams.LevelCrossingExitProtectiveStopDistancePercent, 0.05m, 5, 0.05m);
                     break;
-
-                default:
-                    Debug.WriteLine($"[AddRsiParameters] Неизвестный тип выхода: {rsiParams.ExitOrderType}");
-                    break;
-            }
-
-            // ============================================================
-            // 4. ОБЩИЙ ПАРАМЕТР - ATR (используется в нескольких местах)
-            // ============================================================
-
-            // ✅ ATR добавляем только если он используется в текущей конфигурации
-            bool usesAtr = false;
-
-            // Проверяем вход
-            if (rsiParams.EntryOrderType == MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitEntry &&
-                rsiParams.MovingTPEntryCalculationType == PriceCalculationType.ATR)
-            {
-                usesAtr = true;
-            }
-
-            // Проверяем выход
-            if (!usesAtr)
-            {
-                switch (rsiParams.ExitOrderType)
-                {
-                    case MoneyGenerator_v5.Strategies.OrderType.Market:
-                        if (rsiParams.TakeProfitCalculationType == PriceCalculationType.ATR ||
-                            rsiParams.StopLossCalculationType == PriceCalculationType.ATR)
-                        {
-                            usesAtr = true;
-                        }
-                        break;
-
-                    case MoneyGenerator_v5.Strategies.OrderType.MovingTakeProfitExit:
-                        if (rsiParams.MovingTPExitCalculationType == PriceCalculationType.ATR)
-                        {
-                            usesAtr = true;
-                        }
-                        break;
-
-                    case MoneyGenerator_v5.Strategies.OrderType.TrailingStopExit:
-                        if (rsiParams.TrailingStopExitCalculationType == PriceCalculationType.ATR)
-                        {
-                            usesAtr = true;
-                        }
-                        break;
-                }
-            }
-
-            if (usesAtr)
-            {
-                //Debug.WriteLine("[AddRsiParameters] Добавление ATR (используется в настройках)");
-                //AddParameter("AtrMultiplier", "Множитель ATR", rsiParams.AtrMultiplier, 0.5m, 5, 0.25m);
             }
 
             Debug.WriteLine($"[AddRsiParameters] КОНЕЦ. Добавлено параметров: {Parameters.Count}");
@@ -732,7 +750,24 @@ namespace MoneyGenerator_v5.ViewModels
         }
 
 
-
+        /// <summary>
+        /// Добавляет константный параметр, который не отображается в UI
+        /// </summary>
+        private void AddConstantParameter(string name, decimal value)
+        {
+            var param = new OptimizationParameter
+            {
+                Name = name,
+                DisplayName = name, // Скрытое имя
+                CurrentValue = value,
+                MinValue = value,
+                MaxValue = value,
+                Step = 1,
+                IsSelected = false // Не выбирается пользователем
+            };
+            Parameters.Add(param);
+            _originalParameters[name] = value;
+        }
 
 
 
@@ -1233,7 +1268,7 @@ namespace MoneyGenerator_v5.ViewModels
                 RefreshCommands();
 
                 // ✅ Показываем информационное сообщение пользователю
-                await Application.Current.Dispatcher.InvokeAsync(() =>
+                /*await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     string message = $"Данные успешно подготовлены!\n\n" +
                         $"Стратегия: {_strategyType}\n" +
@@ -1257,7 +1292,7 @@ namespace MoneyGenerator_v5.ViewModels
                         "Готово",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
-                });
+                });*/
             }
             catch (Exception ex)
             {
@@ -2198,6 +2233,8 @@ namespace MoneyGenerator_v5.ViewModels
             bool result = hasSelected && dataReady && hasModels && notRunning;
             Debug.WriteLine($"[CanStartOptimization] result={result}");
 
+            Debug.WriteLine($"[CanStartOptimization] hasSelected={hasSelected}, dataReady={dataReady}, hasModels={hasModels}, notRunning={notRunning}, result={result}");
+
             return result;
         }
 
@@ -2265,11 +2302,11 @@ namespace MoneyGenerator_v5.ViewModels
         /// </summary>
         private async Task StartOptimizationAsync()
         {
-            Debug.WriteLine("[StartOptimizationAsync] ========== НАЧАЛО ==========");
-            Debug.WriteLine($"[StartOptimizationAsync] _isOptimizing={_isOptimizing}");
-            Debug.WriteLine($"[StartOptimizationAsync] _dataPrepared={_dataPrepared}");
-            Debug.WriteLine($"[StartOptimizationAsync] _engineFactory={_engineFactory != null}");
-            Debug.WriteLine($"[StartOptimizationAsync] _strategyType={_strategyType}");
+            //Debug.WriteLine("[StartOptimizationAsync] ========== НАЧАЛО ==========");
+            //Debug.WriteLine($"[StartOptimizationAsync] _isOptimizing={_isOptimizing}");
+            //Debug.WriteLine($"[StartOptimizationAsync] _dataPrepared={_dataPrepared}");
+            //Debug.WriteLine($"[StartOptimizationAsync] _engineFactory={_engineFactory != null}");
+            //Debug.WriteLine($"[StartOptimizationAsync] _strategyType={_strategyType}");
 
             // ============================================================
             // 1. ПРОВЕРКА: не выполняется ли уже оптимизация
@@ -2516,20 +2553,19 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine("[StartOptimizationAsync] ========== КОНЕЦ ==========");
         }
 
-       
+
         private async Task RunOptimizationAsync(List<OptimizationParameter> selectedParams, CancellationToken cancellationToken)
         {
             Debug.WriteLine("[RunOptimizationAsync] ========== НАЧАЛО ==========");
 
             try
             {
-                // ✅ ПОЛУЧАЕМ ВСЕ ПАРАМЕТРЫ (включая НЕвыбранные) с их текущими значениями
                 var allParams = Parameters.ToDictionary(p => p.Name, p => p.CurrentValue);
 
                 Debug.WriteLine($"[RunOptimizationAsync] Все параметры (текущие значения):");
                 foreach (var kvp in allParams)
                 {
-                    //Debug.WriteLine($"  {kvp.Key} = {kvp.Value}");
+                    Debug.WriteLine($"  {kvp.Key} = {kvp.Value}");
                 }
 
                 Debug.WriteLine($"[RunOptimizationAsync] Выбрано для оптимизации: {selectedParams.Count} параметров");
@@ -2538,11 +2574,22 @@ namespace MoneyGenerator_v5.ViewModels
                     Debug.WriteLine($"  {p.Name} (диапазон: {p.MinValue}..{p.MaxValue}, шаг: {p.Step})");
                 }
 
-                // ✅ ПРЕДВАРИТЕЛЬНЫЙ РАСЧЕТ КОЛИЧЕСТВА КОМБИНАЦИЙ (БЕЗ ГЕНЕРАЦИИ ВСЕХ!)
+                if (!selectedParams.Any())
+                {
+                    Debug.WriteLine("[RunOptimizationAsync] НЕТ ВЫБРАННЫХ ПАРАМЕТРОВ ДЛЯ ОПТИМИЗАЦИИ!");
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        MessageBox.Show("Выберите хотя бы один параметр для оптимизации", "Предупреждение",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    });
+                    return;
+                }
+
                 long totalCombinations = 1;
                 foreach (var param in selectedParams)
                 {
                     var count = param.GetValueCount();
+                    Debug.WriteLine($"[RunOptimizationAsync] {param.Name}: Count={count}");
                     if (totalCombinations > long.MaxValue / count)
                     {
                         totalCombinations = long.MaxValue;
@@ -2551,17 +2598,14 @@ namespace MoneyGenerator_v5.ViewModels
                     totalCombinations *= count;
                 }
                 int total = (int)Math.Min(totalCombinations, int.MaxValue);
-
                 Debug.WriteLine($"[RunOptimizationAsync] Всего комбинаций: {total}");
 
-                // ✅ КОРРЕКТИРУЕМ TotalCombinations
                 if (TotalCombinations != total)
                 {
                     TotalCombinations = total;
                     ProgressMaximum = total;
                 }
 
-                // ✅ СРАЗУ ПОКАЗЫВАЕМ ПРОГРЕСС-БАР
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     IsProgressVisible = true;
@@ -2576,21 +2620,25 @@ namespace MoneyGenerator_v5.ViewModels
                 int processed = 0;
                 int validResultsCount = 0;
                 int invalidCount = 0;
+                int errorCount = 0;
                 OptimizationResult bestResult = null;
 
                 DateTime startTime = DateTime.Now;
                 double averageSpeed = 0;
                 int speedSamples = 0;
-
-                // ✅ СЧЕТЧИК ДЛЯ ПЕРИОДИЧЕСКОЙ ОЧИСТКИ ПАМЯТИ
                 int gcCounter = 0;
 
-                // ============================================================
-                // ✅ ОСНОВНОЙ ЦИКЛ - ИСПОЛЬЗУЕМ LAZY ГЕНЕРАЦИЮ (БЕЗ ХРАНЕНИЯ ВСЕХ КОМБИНАЦИЙ В ПАМЯТИ)
-                // ============================================================
+                // ✅ ДОБАВЛЯЕМ ЛОГИРОВАНИЕ РЕЗУЛЬТАТОВ
+                int logCounter = 0;
+                const int LOG_INTERVAL = 100; // Логируем каждые 100 комбинаций
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    Results.Clear();
+                });
+
                 foreach (var paramSet in GenerateCombinationsLazy(selectedParams))
                 {
-                    // Проверка отмены
                     if (cancellationToken.IsCancellationRequested)
                     {
                         Debug.WriteLine("[RunOptimizationAsync] ОСТАНОВКА по запросу пользователя");
@@ -2599,119 +2647,143 @@ namespace MoneyGenerator_v5.ViewModels
 
                     try
                     {
-                        // ✅ УВЕЛИЧИВАЕМ СЧЕТЧИК НА КАЖДОЙ ИТЕРАЦИИ
                         processed++;
                         gcCounter++;
 
-                        // Формируем полный набор параметров
                         var fullParamSet = new Dictionary<string, decimal>(allParams);
                         foreach (var kvp in paramSet)
                         {
                             fullParamSet[kvp.Key] = kvp.Value;
                         }
 
-                        // Отладочный вывод для первых 5 комбинаций
                         if (processed <= 5)
                         {
                             Debug.WriteLine($"[RunOptimizationAsync] Комбинация {processed}: " +
                                 $"{string.Join(", ", fullParamSet.Select(p => $"{p.Key}={p.Value}"))}");
                         }
 
-                        // ✅ Проверяем валидность комбинации ПЕРЕД бэктестом
                         bool isValidCombination = IsValidParameterCombination(fullParamSet);
 
                         OptimizationResult result = null;
 
                         if (isValidCombination)
                         {
-                            // Только валидные комбинации отправляем в бэктест
-                            result = await _backtestEngine.RunBacktestAsync(fullParamSet, cancellationToken);
-
-                            if (result != null && result.TotalTrades > 0 && IsValidOptimizationResult(result))
+                            try
                             {
-                                // ✅ ВАЛИДНЫЙ РЕЗУЛЬТАТ - добавляем в коллекцию
-                                result.Iteration = ++validResultsCount;
+                                result = await _backtestEngine.RunBacktestAsync(fullParamSet, cancellationToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[RunOptimizationAsync] ❌ Ошибка бэктеста для комбинации {processed}: {ex.Message}");
+                                errorCount++;
+                                continue;
+                            }
 
-                                lock (_resultLock)
+                            if (result != null && result.TotalTrades > 0)
+                            {
+                                // ✅ ДОБАВЛЯЕМ ЛОГИРОВАНИЕ КАЖДОГО РЕЗУЛЬТАТА
+                                logCounter++;
+                                if (logCounter % LOG_INTERVAL == 0 || processed <= 10)
                                 {
-                                    Application.Current.Dispatcher.Invoke(() =>
+                                    //Debug.WriteLine($"[RunOptimizationAsync] 📊 Результат {processed}: " +
+                                    //    $"NetProfit={result.NetProfit:F2}, Trades={result.TotalTrades}, " +
+                                    //    $"WinRate={result.WinRate:F1}%, " +
+                                    //    $"EntryTarget={fullParamSet["MovingTPEntryTargetAtrMultiplier"]}, " +
+                                    //    $"EntryOffset={fullParamSet["MovingTPEntryOffsetAtrMultiplier"]}, " +
+                                    //    $"ExitTarget={fullParamSet["MovingTPExitTargetAtrMultiplier"]}, " +
+                                    //    $"ExitOffset={fullParamSet["MovingTPExitOffsetAtrMultiplier"]}");
+                                }
+
+                                // ✅ ПРОВЕРЯЕМ ВАЛИДНОСТЬ РЕЗУЛЬТАТА
+                                bool isValidResult = IsValidOptimizationResult(result);
+
+                                if (isValidResult)
+                                {
+                                    result.Iteration = ++validResultsCount;
+
+                                    lock (_resultLock)
                                     {
-                                        // ============================================================
-                                        // ✅ ОГРАНИЧИВАЕМ КОЛИЧЕСТВО СОХРАНЯЕМЫХ РЕЗУЛЬТАТОВ (ТОП-500)
-                                        // ============================================================
-                                        const int MAX_RESULTS_TO_KEEP = 500;
-
-                                        if (Results.Count >= MAX_RESULTS_TO_KEEP)
+                                        Application.Current.Dispatcher.Invoke(() =>
                                         {
-                                            // Находим худший результат в коллекции
-                                            var worstResult = Results
-                                                .OrderBy(r => r.NetProfit)
-                                                .FirstOrDefault();
+                                            const int MAX_RESULTS_TO_KEEP = 100000000; //  Пока для проверки поставил гигантское число что бы отследить все варианты результатов оптимизации 
 
-                                            // Если текущий результат лучше худшего - заменяем
-                                            if (worstResult != null && result.NetProfit > worstResult.NetProfit)
+                                            if (Results.Count >= MAX_RESULTS_TO_KEEP)
                                             {
-                                                // ✅ ОЧИЩАЕМ ИСТОРИЮ У УДАЛЯЕМОГО РЕЗУЛЬТАТА (освобождаем память)
-                                                worstResult.EquityHistory = null;
-                                                worstResult.EquityDates = null;
+                                                var worstResult = Results
+                                                    .OrderBy(r => r.NetProfit)
+                                                    .FirstOrDefault();
 
-                                                // Удаляем худший и добавляем текущий
-                                                Results.Remove(worstResult);
-                                                Results.Add(result);
+                                                if (worstResult != null && result.NetProfit > worstResult.NetProfit)
+                                                {
+                                                    worstResult.EquityHistory = null;
+                                                    worstResult.EquityDates = null;
+                                                    Results.Remove(worstResult);
+                                                    Results.Add(result);
+                                                    //Debug.WriteLine($"[RunOptimizationAsync] ✅ Добавлен результат {result.Iteration}: NetProfit={result.NetProfit:F2}, Trades={result.TotalTrades}");
+                                                }
                                             }
-                                            // Если текущий результат не лучше худшего - просто пропускаем
-                                        }
-                                        else
-                                        {
-                                            // Если коллекция еще не заполнена - добавляем
-                                            Results.Add(result);
-                                        }
+                                            else
+                                            {
+                                                Results.Add(result);
+                                                //Debug.WriteLine($"[RunOptimizationAsync] ✅ Добавлен результат {result.Iteration}: NetProfit={result.NetProfit:F2}, Trades={result.TotalTrades}");
+                                            }
 
-                                        // Проверяем, не стал ли этот результат лучшим
-                                        if (bestResult == null || result.NetProfit > bestResult.NetProfit)
-                                        {
-                                            bestResult = result;
-                                            Debug.WriteLine($"[RunOptimizationAsync] 🏆 НОВЫЙ ЛУЧШИЙ РЕЗУЛЬТАТ {_instrumentInfo}: NetProfit={result.NetProfit:F2}, Trades={result.TotalTrades}");
-                                            UpdateBestResultSummary(bestResult);
-                                        }
-                                    });
+                                            if (bestResult == null || result.NetProfit > bestResult.NetProfit)
+                                            {
+                                                bestResult = result;
+                                                Debug.WriteLine($"[RunOptimizationAsync] 🏆 НОВЫЙ ЛУЧШИЙ РЕЗУЛЬТАТ {_instrumentInfo}: NetProfit={result.NetProfit:F2}, Trades={result.TotalTrades}");
+                                                UpdateBestResultSummary(bestResult);
+                                            }
+                                        });
+                                    }
+                                }
+                                else
+                                {
+                                    invalidCount++;
+                                    if (processed <= 10)
+                                    {
+                                        Debug.WriteLine($"[RunOptimizationAsync] ❌ Невалидный результат: NetProfit={result.NetProfit}, Trades={result.TotalTrades}");
+                                    }
                                 }
                             }
                             else
                             {
                                 invalidCount++;
-                                // ✅ ОСВОБОЖДАЕМ ПАМЯТЬ ОТ НЕВАЛИДНОГО РЕЗУЛЬТАТА
-                                if (result != null)
+                                if (processed <= 10)
                                 {
-                                    result.EquityHistory = null;
-                                    result.EquityDates = null;
-                                    result = null;
+                                    Debug.WriteLine($"[RunOptimizationAsync] ❌ Пустой результат или нет сделок: result={result != null}, TotalTrades={result?.TotalTrades ?? 0}");
                                 }
                             }
                         }
                         else
                         {
                             invalidCount++;
+                            if (processed <= 10)
+                            {
+                                Debug.WriteLine($"[RunOptimizationAsync] ❌ Невалидная комбинация параметров");
+                            }
                         }
 
-                        // ============================================================
-                        // ОБНОВЛЕНИЕ ПРОГРЕССА
-                        // ============================================================
                         CompletedCombinations = processed;
 
-                        // Обновляем прогресс каждые 50 комбинаций
                         if (processed % 50 == 0 || processed == total)
                         {
                             await UpdateProgressAsync(processed, total, startTime, averageSpeed, speedSamples, bestResult);
                         }
 
-                        // ============================================================
-                        // ✅ ПЕРИОДИЧЕСКИЙ СБОР МУСОРА ДЛЯ ОСВОБОЖДЕНИЯ ПАМЯТИ
-                        // ============================================================
+                        // ✅ ПЕРИОДИЧЕСКОЕ ЛОГИРОВАНИЕ СТАТИСТИКИ
+                        if (processed % 1000 == 0)
+                        {
+                            //Debug.WriteLine($"[RunOptimizationAsync] 📊 СТАТИСТИКА после {processed} комбинаций:");
+                            //Debug.WriteLine($"  - Валидных результатов: {validResultsCount}");
+                            //Debug.WriteLine($"  - Невалидных: {invalidCount}");
+                            //Debug.WriteLine($"  - Ошибок: {errorCount}");
+                            //Debug.WriteLine($"  - Лучший P&L: {bestResult?.NetProfit ?? 0:F2}");
+                            //Debug.WriteLine($"  - Всего результатов в коллекции: {Results.Count}");
+                        }
+
                         if (gcCounter % 500 == 0)
                         {
-                            // Принудительно вызываем сборщик мусора каждые 500 итераций
-                            // Это помогает освободить память от временных объектов
                             GC.Collect();
                             GC.WaitForPendingFinalizers();
                         }
@@ -2723,13 +2795,21 @@ namespace MoneyGenerator_v5.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[RunOptimizationAsync] Ошибка в комбинации {processed}: {ex.Message}");
-                        invalidCount++;
+                        Debug.WriteLine($"[RunOptimizationAsync] ❌ Ошибка в комбинации {processed}: {ex.Message}");
+                        errorCount++;
                     }
                 }
 
-                // Финальное сообщение
-                await FinishOptimizationAsync(processed, total, validResultsCount, invalidCount, startTime, cancellationToken);
+                // ✅ ФИНАЛЬНОЕ ЛОГИРОВАНИЕ СТАТИСТИКИ
+                Debug.WriteLine($"[RunOptimizationAsync] ========== ФИНАЛЬНАЯ СТАТИСТИКА ==========");
+                Debug.WriteLine($"  - Обработано комбинаций: {processed}");
+                Debug.WriteLine($"  - Валидных результатов: {validResultsCount}");
+                Debug.WriteLine($"  - Невалидных: {invalidCount}");
+                Debug.WriteLine($"  - Ошибок: {errorCount}");
+                Debug.WriteLine($"  - Лучший P&L: {bestResult?.NetProfit ?? 0:F2}");
+                Debug.WriteLine($"  - Всего результатов в коллекции: {Results.Count}");
+
+                await FinishOptimizationAsync(processed, total, validResultsCount, invalidCount + errorCount, startTime, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -2873,17 +2953,17 @@ namespace MoneyGenerator_v5.ViewModels
             if (result == null)
                 return false;
 
-            // ✅ Используем общую логику проверки комбинации параметров
-            if (!IsValidParameterCombination(result.Parameters))
+            // ✅ Если нет сделок - результат невалидный (пропускаем)
+            if (result.TotalTrades <= 0)
             {
-                Debug.WriteLine($"[OptimizationViewModel] ❌ Результат не прошел проверку параметров");
+                Debug.WriteLine($"[OptimizationViewModel] ❌ Нет сделок: TotalTrades={result.TotalTrades}");
                 return false;
             }
 
-            // ✅ Проверка базовой валидности (есть сделки и прибыль не равна -999999)
-            if (result.TotalTrades <= 0 || result.NetProfit < -500000)
+            // ✅ Проверяем, что результат не содержит ошибку (-999999)
+            if (result.NetProfit < -900000)
             {
-                Debug.WriteLine($"[OptimizationViewModel] ❌ Недостаточно сделок или слишком большой убыток");
+                Debug.WriteLine($"[OptimizationViewModel] ❌ Ошибка бэктеста: NetProfit={result.NetProfit}");
                 return false;
             }
 
@@ -2894,10 +2974,10 @@ namespace MoneyGenerator_v5.ViewModels
                 return false;
             }
 
-            // ✅ Проверяем, что просадка не слишком большая (>100% означает полную потерю депозита)
-            if (result.MaxDrawdown > 100)
+            // ✅ Проверяем, что просадка не слишком большая
+            if (result.MaxDrawdown > 1000)
             {
-                Debug.WriteLine($"[OptimizationViewModel] ❌ MaxDrawdown={result.MaxDrawdown} > 100%");
+                Debug.WriteLine($"[OptimizationViewModel] ❌ MaxDrawdown={result.MaxDrawdown} > 1000%");
                 return false;
             }
 
@@ -2915,17 +2995,24 @@ namespace MoneyGenerator_v5.ViewModels
                 return false;
             }
 
-            // ✅ Проверяем, что AverageLoss не отрицательный (убыток может быть только отрицательным числом)
+            // ✅ Проверяем, что AverageLoss не отрицательный
             if (result.AverageLoss < 0)
             {
                 Debug.WriteLine($"[OptimizationViewModel] ❌ AverageLoss={result.AverageLoss} отрицательный");
                 return false;
             }
 
-            // ✅ Дополнительная проверка: Expectancy должен быть в разумных пределах
-            if (result.Expectancy < -10000 || result.Expectancy > 100000)
+            // ✅ ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Expectancy должен быть в разумных пределах
+            if (result.Expectancy < -100000 || result.Expectancy > 100000)
             {
                 Debug.WriteLine($"[OptimizationViewModel] ⚠️ Expectancy={result.Expectancy} выходит за разумные пределы");
+                // Не блокируем, только предупреждаем
+            }
+
+            // ✅ ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: RecoveryFactor
+            if (result.RecoveryFactor < -100 || result.RecoveryFactor > 100)
+            {
+                Debug.WriteLine($"[OptimizationViewModel] ⚠️ RecoveryFactor={result.RecoveryFactor} выходит за разумные пределы");
                 // Не блокируем, только предупреждаем
             }
 
@@ -3018,11 +3105,17 @@ namespace MoneyGenerator_v5.ViewModels
 
         /// <summary>
         /// Генерирует ВСЕ комбинации параметров "на лету" (без хранения в памяти)
-        /// Использует yield return для пошаговой генерации
+        /// ✅ РАБОТАЕТ ДЛЯ ВСЕХ СТРАТЕГИЙ, ВКЛЮЧАЯ MA
         /// </summary>
         private IEnumerable<Dictionary<string, decimal>> GenerateCombinationsLazy(List<OptimizationParameter> selectedParams)
         {
             Debug.WriteLine($"[GenerateCombinationsLazy] НАЧАЛО: selectedParams.Count={selectedParams.Count}");
+
+            if (selectedParams == null || !selectedParams.Any())
+            {
+                Debug.WriteLine("[GenerateCombinationsLazy] НЕТ ВЫБРАННЫХ ПАРАМЕТРОВ");
+                yield break;
+            }
 
             var paramValues = new List<List<(string Name, decimal Value)>>();
 
@@ -3034,10 +3127,9 @@ namespace MoneyGenerator_v5.ViewModels
                     values.Add((param.Name, val));
                 }
                 paramValues.Add(values);
-                Debug.WriteLine($"[GenerateCombinationsLazy] Параметр {param.Name}: {values.Count} значений");
+                //Debug.WriteLine($"[GenerateCombinationsLazy] Параметр {param.Name}: {values.Count} значений (от {values.FirstOrDefault().Value} до {values.LastOrDefault().Value})");
             }
 
-            // ✅ Используем рекурсивный генератор с yield return
             foreach (var combo in GenerateCombinationsRecursiveLazy(paramValues, 0, new Dictionary<string, decimal>()))
             {
                 yield return combo;
@@ -3092,25 +3184,29 @@ namespace MoneyGenerator_v5.ViewModels
 
         /// <summary>
         /// Проверяет, является ли комбинация параметров валидной для текущей стратегии
+        /// ✅ РАБОТАЕТ ДЛЯ ВСЕХ СТРАТЕГИЙ
         /// </summary>
         private bool IsValidParameterCombination(Dictionary<string, decimal> parameters)
         {
             switch (_strategyType)
             {
+                case "RSI":
+
+                    
+
+                    return IsValidRsiCombination(parameters);
+
                 case "MA":
                     return IsValidMaCombination(parameters);
 
                 case "PairsTrading":
                     return IsValidPairsTradingCombination(parameters);
 
-                case "RSI":
-                    return IsValidRsiCombination(parameters);
-
                 case "Rating":
                     return IsValidRatingCombination(parameters);
 
                 default:
-                    // Для неизвестных стратегий пропускаем все комбинации
+                    // ✅ ДЛЯ НЕИЗВЕСТНЫХ СТРАТЕГИЙ ПРОПУСКАЕМ ВСЕ КОМБИНАЦИИ
                     Debug.WriteLine($"[IsValidParameterCombination] Неизвестная стратегия: {_strategyType}, пропускаем все");
                     return true;
             }
@@ -3119,6 +3215,7 @@ namespace MoneyGenerator_v5.ViewModels
 
         /// <summary>
         /// Проверка валидности комбинации для MA стратегии
+        /// ✅ ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ
         /// </summary>
         private bool IsValidMaCombination(Dictionary<string, decimal> parameters)
         {
@@ -3129,8 +3226,6 @@ namespace MoneyGenerator_v5.ViewModels
             {
                 if (!(smaShort < smaMedium && smaMedium < smaLong))
                 {
-                    //Debug.WriteLine($"[IsValidMaCombination] ❌ Невалидный SMA порядок: " +
-                    //    $"SmaShort={smaShort}, SmaMedium={smaMedium}, SmaLong={smaLong}");
                     return false;
                 }
             }
@@ -3142,8 +3237,6 @@ namespace MoneyGenerator_v5.ViewModels
             {
                 if (!(emaShort < emaMedium && emaMedium < emaLong))
                 {
-                    //Debug.WriteLine($"[IsValidMaCombination] ❌ Невалидный EMA порядок: " +
-                    //    $"EmaShort={emaShort}, EmaMedium={emaMedium}, EmaLong={emaLong}");
                     return false;
                 }
             }
@@ -3154,8 +3247,6 @@ namespace MoneyGenerator_v5.ViewModels
             {
                 if (slMultiplier > tsMultiplier)
                 {
-                    //Debug.WriteLine($"[IsValidMaCombination] ❌ Невалидные ATR множители: " +
-                    //    $"StopLoss={slMultiplier} > TrailingStop={tsMultiplier}");
                     return false;
                 }
             }
@@ -3166,22 +3257,7 @@ namespace MoneyGenerator_v5.ViewModels
             {
                 if (tpMultiplier <= slMultiplier2)
                 {
-                    //Debug.WriteLine($"[IsValidMaCombination] ❌ Невалидные ATR множители: " +
-                    //    $"TakeProfit={tpMultiplier} <= StopLoss={slMultiplier2}");
                     return false;
-                }
-            }
-
-            // ✅ Проверка: FilterSmaPeriod должен быть между SmaShort и SmaMedium
-            if (parameters.TryGetValue("FilterSmaPeriod", out var filterSma) &&
-                parameters.TryGetValue("SmaShort", out var smaShort2) &&
-                parameters.TryGetValue("SmaMedium", out var smaMedium2))
-            {
-                if (filterSma < smaShort2 || filterSma > smaMedium2)
-                {
-                    //Debug.WriteLine($"[IsValidMaCombination] ⚠️ FilterSmaPeriod={filterSma} вне диапазона " +
-                     //   $"SmaShort={smaShort2}..SmaMedium={smaMedium2}, но это не критично");
-                    // Не блокируем, только предупреждаем
                 }
             }
 
@@ -3242,51 +3318,89 @@ namespace MoneyGenerator_v5.ViewModels
 
         /// <summary>
         /// Проверка валидности комбинации для RSI стратегии
+        /// ✅ ИСПРАВЛЕНО: добавлены проверки для всех типов входа/выхода
         /// </summary>
         private bool IsValidRsiCombination(Dictionary<string, decimal> parameters)
         {
-            // ✅ RsiOverbought должен быть больше RsiOversold
+            // ✅ Проверка RSI уровней
             if (parameters.TryGetValue("RsiOverbought", out var overbought) &&
                 parameters.TryGetValue("RsiOversold", out var oversold))
             {
                 if (overbought <= oversold)
                 {
-                    Debug.WriteLine($"[IsValidRsiCombination] ❌ Невалидные RSI уровни: " +
-                        $"Overbought={overbought} <= Oversold={oversold}");
+                    Debug.WriteLine($"[IsValidRsiCombination] ❌ RsiOverbought={overbought} <= RsiOversold={oversold}");
                     return false;
                 }
             }
 
-            // ✅ RsiPeriod должен быть не меньше 5
-            if (parameters.TryGetValue("RsiPeriod", out var period))
+            // ✅ Проверка Stochastic уровней
+            if (parameters.TryGetValue("StochOverbought", out var stochOverbought) &&
+                parameters.TryGetValue("StochOversold", out var stochOversold))
             {
-                if (period < 5)
+                if (stochOverbought <= stochOversold)
                 {
-                    Debug.WriteLine($"[IsValidRsiCombination] ❌ RsiPeriod={period} < 5");
+                    Debug.WriteLine($"[IsValidRsiCombination] ❌ StochOverbought={stochOverbought} <= StochOversold={stochOversold}");
                     return false;
                 }
             }
 
-            // ✅ TakeProfitPercent должен быть больше StopLossPercent
-            if (parameters.TryGetValue("TakeProfitPercent", out var tp) &&
-                parameters.TryGetValue("StopLossPercent", out var sl))
-            {
-                if (tp <= sl)
-                {
-                    Debug.WriteLine($"[IsValidRsiCombination] ❌ TakeProfit={tp} <= StopLoss={sl}");
-                    return false;
-                }
-            }
-
-            // ✅ Размер позиции должен быть в разумных пределах
+            // ✅ Проверка размера позиции
             if (parameters.TryGetValue("OrderSizePercent", out var orderSize))
             {
-                if (orderSize < 1 || orderSize > 100)
+                if (orderSize < 0.1m || orderSize > 100)
                 {
-                    Debug.WriteLine($"[IsValidRsiCombination] ❌ OrderSizePercent={orderSize} вне диапазона 1-100%");
+                    Debug.WriteLine($"[IsValidRsiCombination] ❌ OrderSizePercent={orderSize} вне диапазона 0.1-100%");
                     return false;
                 }
             }
+
+            // ✅ Проверка Moving Take Profit Entry
+            /*if (parameters.TryGetValue("MovingTPEntryTargetAtrMultiplier", out var entryTargetAtr) &&
+                parameters.TryGetValue("MovingTPEntryOffsetAtrMultiplier", out var entryOffsetAtr))
+            {
+                // ✅ ЦЕЛЬ должна быть больше ОТСТУПА
+                if (entryTargetAtr <= entryOffsetAtr)
+                {
+                    Debug.WriteLine($"[IsValidRsiCombination] ❌ EntryTargetAtr={entryTargetAtr} <= EntryOffsetAtr={entryOffsetAtr}");
+                    return false;
+                }
+            }*/
+
+            // ✅ Проверка Moving Take Profit Exit
+            /*if (parameters.TryGetValue("MovingTPExitTargetAtrMultiplier", out var exitTargetAtr) &&
+                parameters.TryGetValue("MovingTPExitOffsetAtrMultiplier", out var exitOffsetAtr))
+            {
+                // ✅ ЦЕЛЬ должна быть больше ОТСТУПА
+                if (exitTargetAtr <= exitOffsetAtr)
+                {
+                    Debug.WriteLine($"[IsValidRsiCombination] ❌ ExitTargetAtr={exitTargetAtr} <= ExitOffsetAtr={exitOffsetAtr}");
+                    return false;
+                }
+            }*/
+
+            // ✅ Проверка Trailing Stop
+            /*if (parameters.TryGetValue("TrailingStopExitActivationPercent", out var activationPercent) &&
+                parameters.TryGetValue("ProtectiveStopPercent", out var protectiveStop))
+            {
+                // ✅ Активация трейлинга должна быть больше защитного стопа
+                if (activationPercent <= protectiveStop)
+                {
+                    Debug.WriteLine($"[IsValidRsiCombination] ❌ ActivationPercent={activationPercent} <= ProtectiveStop={protectiveStop}");
+                    return false;
+                }
+            }*/
+
+            // ✅ Проверка Take Profit / Stop Loss для Market выхода
+           /* if (parameters.TryGetValue("TakeProfitPercent", out var tpPercent) &&
+                parameters.TryGetValue("StopLossPercent", out var slPercent))
+            {
+                // ✅ TP должен быть больше SL
+                if (tpPercent <= slPercent)
+                {
+                    Debug.WriteLine($"[IsValidRsiCombination] ❌ TakeProfitPercent={tpPercent} <= StopLossPercent={slPercent}");
+                    return false;
+                }
+            }*/
 
             return true;
         }
@@ -3420,6 +3534,10 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine("[ApplySelectedParameters] Применение параметров...");
             ApplyParametersToStrategy(SelectedResult.Parameters);
             ParametersApplied?.Invoke(SelectedResult.Parameters);
+
+            // ✅ ВЫЗЫВАЕМ СОБЫТИЕ ДЛЯ ОБНОВЛЕНИЯ UI СТРАТЕГИИ
+            OnParametersAppliedToStrategy?.Invoke();
+
 
             // ✅ НОВОЕ: После применения параметров ОБНОВЛЯЕМ значения в окне оптимизации
             RefreshOptimizationParameters();
@@ -3710,6 +3828,7 @@ namespace MoneyGenerator_v5.ViewModels
 
         /// <summary>
         /// Обновляет параметры RSI стратегии
+        /// ✅ ИСПРАВЛЕНО: принудительное обновление UI через замену элемента в коллекции
         /// </summary>
         private void RefreshRsiParameters()
         {
@@ -3740,316 +3859,353 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine($"  EntryOrderType = {rsiParams.EntryOrderType}");
             Debug.WriteLine($"  ExitOrderType = {rsiParams.ExitOrderType}");
 
-            // ✅ Обновляем CurrentValue для каждого параметра
-            foreach (var param in Parameters)
+            // ✅ Сохраняем текущий список для сравнения
+            var parametersToUpdate = Parameters.ToList();
+            int updatedCount = 0;
+
+            foreach (var param in parametersToUpdate)
             {
                 decimal newValue = 0;
                 bool found = false;
 
                 switch (param.Name)
                 {
+                    // ============================================================
                     // Базовые параметры RSI
+                    // ============================================================
                     case "RsiPeriod":
                         newValue = rsiParams.RsiPeriod;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "RsiOverbought":
                         newValue = rsiParams.RsiOverbought;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "RsiOversold":
                         newValue = rsiParams.RsiOversold;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
+                    // ============================================================
                     // Параметры Stochastic
+                    // ============================================================
                     case "StochPeriod":
                         newValue = rsiParams.StochPeriod;
-                        param.CurrentValue = newValue;
                         found = true;
                         Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "StochOverbought":
                         newValue = rsiParams.StochOverbought;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "StochOversold":
                         newValue = rsiParams.StochOversold;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "StochSmoothK":
                         newValue = rsiParams.StochSmoothK;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "StochSmoothD":
                         newValue = rsiParams.StochSmoothD;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
+                    // ============================================================
+                    // Тип осциллятора
+                    // ============================================================
+                    case "OscillatorType":
+                        newValue = (int)rsiParams.OscillatorType;
+                        found = true;
+                        break;
+
+                    // ============================================================
                     // Параметры входа
+                    // ============================================================
                     case "EntryOrderType":
                         newValue = (int)rsiParams.EntryOrderType;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "EntryLimitOffsetPercent":
                         newValue = rsiParams.EntryLimitOffsetPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "EntryStopOffsetPercent":
                         newValue = rsiParams.EntryStopOffsetPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "EntrySlippage":
                         newValue = rsiParams.EntrySlippage;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
+                    // ============================================================
                     // Параметры выхода
+                    // ============================================================
                     case "ExitOrderType":
                         newValue = (int)rsiParams.ExitOrderType;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "ExitSlippage":
                         newValue = rsiParams.ExitSlippage;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "CloseOnSignalReversal":
                         newValue = rsiParams.CloseOnSignalReversal ? 1 : 0;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
+                    // ============================================================
                     // Moving Take Profit Entry
+                    // ============================================================
                     case "MovingTPEntryCalculationType":
                         newValue = (int)rsiParams.MovingTPEntryCalculationType;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "MovingTPEntryTargetPercent":
                         newValue = rsiParams.MovingTPEntryTargetPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "MovingTPEntryTargetAbsolute":
+                        newValue = rsiParams.MovingTPEntryTargetAbsolute;
+                        found = true;
+                        break;
+
+                    // ✅ ИСПРАВЛЕНО: читаем из НОВОГО поля MovingTPEntryTargetAtrMultiplier
+                    case "MovingTPEntryTargetAtrMultiplier":
+                        newValue = rsiParams.MovingTPEntryTargetAtrMultiplier;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2} (из MovingTPEntryTargetAtrMultiplier)");
+                        break;
+
+                    // ✅ ИСПРАВЛЕНО: читаем из НОВОГО поля MovingTPEntryOffsetAtrMultiplier
+                    case "MovingTPEntryOffsetAtrMultiplier":
+                        newValue = rsiParams.MovingTPEntryOffsetAtrMultiplier;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2} (из MovingTPEntryOffsetAtrMultiplier)");
+                        break;
+
+                    case "MovingTPEntryOffsetPercent":
+                        newValue = rsiParams.MovingTPEntryOffsetPercent;
+                        found = true;
+                        break;
+
+                    case "MovingTPEntryOffsetAbsolute":
+                        newValue = rsiParams.MovingTPEntryOffsetAbsolute;
+                        found = true;
                         break;
 
                     case "MovingTPEntrySlippage":
                         newValue = rsiParams.MovingTPEntrySlippage;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "MovingTPEntryTimeoutMinutes":
                         newValue = rsiParams.MovingTPEntryTimeoutMinutes;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
+                    // ============================================================
                     // Moving Take Profit Exit
+                    // ============================================================
                     case "MovingTPExitCalculationType":
                         newValue = (int)rsiParams.MovingTPExitCalculationType;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
-                    case "MovingTPExitStartPercent":
+                    case "MovingTPExitTargetPercent":
                         newValue = rsiParams.MovingTPExitStartPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "MovingTPExitTargetAbsolute":
+                        newValue = rsiParams.MovingTPExitStartAbsolute;
+                        found = true;
+                        break;
+
+                    // ✅ ИСПРАВЛЕНО: читаем из НОВОГО поля MovingTPExitTargetAtrMultiplier
+                    case "MovingTPExitTargetAtrMultiplier":
+                        newValue = rsiParams.MovingTPExitTargetAtrMultiplier;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2} (из MovingTPExitTargetAtrMultiplier)");
+                        break;
+
+                    // ✅ ИСПРАВЛЕНО: читаем из НОВОГО поля MovingTPExitOffsetAtrMultiplier
+                    case "MovingTPExitOffsetAtrMultiplier":
+                        newValue = rsiParams.MovingTPExitOffsetAtrMultiplier;
+                        found = true;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2} (из MovingTPExitOffsetAtrMultiplier)");
+                        break;
+
+                    case "MovingTPExitOffsetPercent":
+                        newValue = rsiParams.MovingTPExitOffsetPercent;
+                        found = true;
+                        break;
+
+                    case "MovingTPExitOffsetAbsolute":
+                        newValue = rsiParams.MovingTPExitOffsetAbsolute;
+                        found = true;
                         break;
 
                     case "MovingTPExitSlippage":
                         newValue = rsiParams.MovingTPExitSlippage;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "MovingTPExitTimeoutMinutes":
                         newValue = rsiParams.MovingTPExitTimeoutMinutes;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
+                    // ============================================================
                     // Trailing Stop Exit
+                    // ============================================================
                     case "TrailingStopExitCalculationType":
                         newValue = (int)rsiParams.TrailingStopExitCalculationType;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "TrailingStopExitDistancePercent":
                         newValue = rsiParams.TrailingStopExitDistancePercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TrailingStopExitDistanceAbsolute":
+                        newValue = rsiParams.TrailingStopExitDistanceAbsolute;
+                        found = true;
+                        break;
+
+                    case "TrailingStopAtrMultiplier":
+                        newValue = rsiParams.MovingTPExitAtrMultiplier;
+                        found = true;
                         break;
 
                     case "TrailingStopExitSlippage":
                         newValue = rsiParams.TrailingStopExitSlippage;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "TrailingStopExitActivationPercent":
                         newValue = rsiParams.TrailingStopExitActivationPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "ProtectiveStopPercent":
                         newValue = rsiParams.ProtectiveStopPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
-                    // Take Profit / Stop Loss
+                    // ============================================================
+                    // Take Profit (для Market выхода)
+                    // ============================================================
                     case "TakeProfitCalculationType":
                         newValue = (int)rsiParams.TakeProfitCalculationType;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "TakeProfitPercent":
                         newValue = rsiParams.TakeProfitPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "TakeProfitAtrMultiplier":
+                        newValue = rsiParams.MovingTPExitAtrMultiplier;
+                        found = true;
                         break;
 
                     case "TakeProfitActivationPrice":
                         newValue = rsiParams.TakeProfitActivationPrice;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "TakeProfitSlippage":
                         newValue = rsiParams.TakeProfitSlippage;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
+                    // ============================================================
+                    // Stop Loss (для Market выхода)
+                    // ============================================================
                     case "StopLossCalculationType":
                         newValue = (int)rsiParams.StopLossCalculationType;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "StopLossPercent":
                         newValue = rsiParams.StopLossPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    case "StopLossAtrMultiplier":
+                        newValue = rsiParams.MovingTPEntryAtrMultiplier;
+                        found = true;
                         break;
 
                     case "StopLossActivationPrice":
                         newValue = rsiParams.StopLossActivationPrice;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "StopLossSlippage":
                         newValue = rsiParams.StopLossSlippage;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
-                    // Общие параметры
-                    case "AtrMultiplier":
-                        newValue = rsiParams.AtrMultiplier;
-                        param.CurrentValue = newValue;
-                        found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
-                        break;
-
-                    case "OrderSizePercent":
-                        newValue = rsiParams.OrderSizePercent;
-                        param.CurrentValue = newValue;
-                        found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
-                        break;
-
-                    // Level Crossing параметры
+                    // ============================================================
+                    // Level Crossing Entry
+                    // ============================================================
                     case "LevelCrossingEntryProtectiveStopPercent":
                         newValue = rsiParams.LevelCrossingEntryProtectiveStopPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "LevelCrossingEntryProtectiveStopDistancePercent":
                         newValue = rsiParams.LevelCrossingEntryProtectiveStopDistancePercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
+                    // ============================================================
+                    // Level Crossing Exit
+                    // ============================================================
                     case "LevelCrossingExitProtectiveStopPercent":
                         newValue = rsiParams.LevelCrossingExitProtectiveStopPercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
                         break;
 
                     case "LevelCrossingExitProtectiveStopDistancePercent":
                         newValue = rsiParams.LevelCrossingExitProtectiveStopDistancePercent;
-                        param.CurrentValue = newValue;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                        break;
+
+                    // ============================================================
+                    // Общие параметры
+                    // ============================================================
+                    case "AtrOffSetMultiplierEntry":
+                        newValue = rsiParams.MovingTPEntryAtrMultiplier;
+                        found = true;
+                        break;
+
+                    case "AtrOffSetMultiplierExit":
+                        newValue = rsiParams.MovingTPExitAtrMultiplier;
+                        found = true;
+                        break;
+
+                    case "OrderSizePercent":
+                        newValue = rsiParams.OrderSizePercent;
+                        found = true;
                         break;
 
                     default:
@@ -4057,10 +4213,55 @@ namespace MoneyGenerator_v5.ViewModels
                         break;
                 }
 
-                if (!found)
+                if (found)
+                {
+                    // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Обновляем CurrentValue
+                    if (param.CurrentValue != newValue)
+                    {
+                        param.CurrentValue = newValue;
+                        updatedCount++;
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue}");
+                    }
+                }
+                else
                 {
                     Debug.WriteLine($"[RefreshRsiParameters] Параметр {param.Name} не был обновлен");
                 }
+            }
+
+            Debug.WriteLine($"[RefreshRsiParameters] Обновлено {updatedCount} параметров");
+
+            // ✅ ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ UI
+            // Пересоздаем коллекцию, чтобы UI точно обновился
+            if (updatedCount > 0)
+            {
+                // Сохраняем выбранные параметры
+                var selectedStates = Parameters.ToDictionary(p => p.Name, p => p.IsSelected);
+
+                // Создаем новую коллекцию
+                var newParameters = new ObservableCollection<OptimizationParameter>();
+                foreach (var param in Parameters)
+                {
+                    var newParam = new OptimizationParameter
+                    {
+                        Name = param.Name,
+                        DisplayName = param.DisplayName,
+                        CurrentValue = param.CurrentValue,
+                        MinValue = param.MinValue,
+                        MaxValue = param.MaxValue,
+                        Step = param.Step,
+                        IsSelected = selectedStates.ContainsKey(param.Name) && selectedStates[param.Name]
+                    };
+                    newParameters.Add(newParam);
+                }
+
+                // Заменяем коллекцию
+                Parameters = newParameters;
+
+                // ✅ ВАЖНО: Переподписываемся на изменения новых параметров
+                SubscribeToParameterChanges();
+
+                Debug.WriteLine("[RefreshRsiParameters] UI принудительно обновлен через замену коллекции");
             }
 
             Debug.WriteLine("[RefreshRsiParameters] КОНЕЦ");
@@ -4324,7 +4525,7 @@ namespace MoneyGenerator_v5.ViewModels
 
         /// <summary>
         /// Применяет параметры оптимизации к реальной RSI стратегии
-        /// УЧИТЫВАЕТ ВСЕ ТИПЫ ВХОДА И ВЫХОДА
+        /// ✅ ИСПРАВЛЕНО: используем правильные поля для каждого типа расчета
         /// </summary>
         private void ApplyRsiParametersToReal(Dictionary<string, decimal> paramSet)
         {
@@ -4339,7 +4540,7 @@ namespace MoneyGenerator_v5.ViewModels
             var p = strategy.Parameters;
 
             // ============================================================
-            // 1. БАЗОВЫЕ ПАРАМЕТРЫ RSI - всегда сохраняются
+            // 1. БАЗОВЫЕ ПАРАМЕТРЫ ОСЦИЛЛЯТОРА
             // ============================================================
             if (paramSet.TryGetValue("RsiPeriod", out var period))
                 p.RsiPeriod = (int)period;
@@ -4349,7 +4550,7 @@ namespace MoneyGenerator_v5.ViewModels
                 p.RsiOversold = oversold;
 
             // ============================================================
-            // 2. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА
+            // 2. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА (Stochastic)
             // ============================================================
             if (paramSet.TryGetValue("StochPeriod", out var stochPeriod))
                 p.StochPeriod = (int)stochPeriod;
@@ -4363,60 +4564,114 @@ namespace MoneyGenerator_v5.ViewModels
                 p.StochSmoothD = (int)smoothD;
 
             // ============================================================
-            // 3. ПАРАМЕТРЫ ВХОДА - в зависимости от типа
+            // 3. ТИП ОСЦИЛЛЯТОРА
+            // ============================================================
+            if (paramSet.TryGetValue("OscillatorType", out var oscType))
+                p.OscillatorType = (OscillatorType)(int)oscType;
+
+            // ============================================================
+            // 4. КОНСТАНТНЫЕ ПАРАМЕТРЫ
             // ============================================================
             if (paramSet.TryGetValue("EntryOrderType", out var entryOrderType))
                 p.EntryOrderType = (MoneyGenerator_v5.Strategies.OrderType)(int)entryOrderType;
+            if (paramSet.TryGetValue("ExitOrderType", out var exitOrderType))
+                p.ExitOrderType = (MoneyGenerator_v5.Strategies.OrderType)(int)exitOrderType;
+            if (paramSet.TryGetValue("CloseOnSignalReversal", out var closeOnSignal))
+                p.CloseOnSignalReversal = (int)closeOnSignal == 1;
+            if (paramSet.TryGetValue("EntrySlippage", out var entrySlippage))
+                p.EntrySlippage = entrySlippage;
+            if (paramSet.TryGetValue("ExitSlippage", out var exitSlippage))
+                p.ExitSlippage = exitSlippage;
+            if (paramSet.TryGetValue("MovingTPEntryTimeoutMinutes", out var tpEntryTimeout))
+                p.MovingTPEntryTimeoutMinutes = (int)tpEntryTimeout;
+            if (paramSet.TryGetValue("MovingTPExitTimeoutMinutes", out var tpExitTimeout))
+                p.MovingTPExitTimeoutMinutes = (int)tpExitTimeout;
+            if (paramSet.TryGetValue("MovingTPEntrySlippage", out var tpEntrySlippage))
+                p.MovingTPEntrySlippage = tpEntrySlippage;
+            if (paramSet.TryGetValue("MovingTPExitSlippage", out var tpExitSlippage))
+                p.MovingTPExitSlippage = tpExitSlippage;
 
-            // Параметры для конкретных типов входа
+            // ============================================================
+            // 5. ПАРАМЕТРЫ ВХОДА (Limit/StopLimit)
+            // ============================================================
             if (paramSet.TryGetValue("EntryLimitOffsetPercent", out var limitOffset))
                 p.EntryLimitOffsetPercent = limitOffset;
             if (paramSet.TryGetValue("EntryStopOffsetPercent", out var stopOffset))
                 p.EntryStopOffsetPercent = stopOffset;
-            if (paramSet.TryGetValue("EntrySlippage", out var entrySlippage))
-                p.EntrySlippage = entrySlippage;
 
-            // Moving Take Profit Entry
+            // ============================================================
+            // 6. MOVING TAKE PROFIT ENTRY (вход)
+            // ============================================================
             if (paramSet.TryGetValue("MovingTPEntryCalculationType", out var tpEntryCalc))
                 p.MovingTPEntryCalculationType = (PriceCalculationType)(int)tpEntryCalc;
-            if (paramSet.TryGetValue("MovingTPEntryTargetPercent", out var tpEntryTarget))
-                p.MovingTPEntryTargetPercent = tpEntryTarget;
-            if (paramSet.TryGetValue("MovingTPEntrySlippage", out var tpEntrySlippage))
-                p.MovingTPEntrySlippage = tpEntrySlippage;
-            if (paramSet.TryGetValue("MovingTPEntryTimeoutMinutes", out var tpEntryTimeout))
-                p.MovingTPEntryTimeoutMinutes = (int)tpEntryTimeout;
 
-            // Level Crossing Entry
-            if (paramSet.TryGetValue("LevelCrossingEntryProtectiveStopPercent", out var entryProtStop))
-                p.LevelCrossingEntryProtectiveStopPercent = entryProtStop;
-            if (paramSet.TryGetValue("LevelCrossingEntryProtectiveStopDistancePercent", out var entryProtStopDist))
-                p.LevelCrossingEntryProtectiveStopDistancePercent = entryProtStopDist;
+            // ✅ Проверяем тип расчета для входа
+            switch (p.MovingTPEntryCalculationType)
+            {
+                case PriceCalculationType.Percentage:
+                    if (paramSet.TryGetValue("MovingTPEntryTargetPercent", out var tpEntryTargetPercent))
+                        p.MovingTPEntryActivationPercent = tpEntryTargetPercent;
+                    if (paramSet.TryGetValue("MovingTPEntryOffsetPercent", out var tpEntryOffsetPercent))
+                        p.MovingTPEntryOffsetPercent = tpEntryOffsetPercent;
+                    break;
+
+                case PriceCalculationType.ATR:
+                    if (paramSet.TryGetValue("MovingTPEntryTargetAtrMultiplier", out var tpEntryTargetAtr))
+                        p.MovingTPEntryTargetAtrMultiplier = tpEntryTargetAtr;  // ✅ НОВОЕ ПОЛЕ!
+                    if (paramSet.TryGetValue("MovingTPEntryOffsetAtrMultiplier", out var tpEntryOffsetAtr))
+                        p.MovingTPEntryOffsetAtrMultiplier = tpEntryOffsetAtr;  // ✅ НОВОЕ ПОЛЕ!
+                    break;
+
+                case PriceCalculationType.Absolute:
+                    if (paramSet.TryGetValue("MovingTPEntryTargetAbsolute", out var tpEntryTargetAbsolute))
+                        p.MovingTPEntryActivationAbsolute = tpEntryTargetAbsolute;
+                    if (paramSet.TryGetValue("MovingTPEntryOffsetAbsolute", out var tpEntryOffsetAbsolute))
+                        p.MovingTPEntryOffsetAbsolute = tpEntryOffsetAbsolute;
+                    break;
+            }
 
             // ============================================================
-            // 4. ПАРАМЕТРЫ ВЫХОДА - в зависимости от типа
+            // 7. MOVING TAKE PROFIT EXIT (выход)
             // ============================================================
-            if (paramSet.TryGetValue("ExitOrderType", out var exitOrderType))
-                p.ExitOrderType = (MoneyGenerator_v5.Strategies.OrderType)(int)exitOrderType;
-            if (paramSet.TryGetValue("ExitSlippage", out var exitSlippage))
-                p.ExitSlippage = exitSlippage;
-            if (paramSet.TryGetValue("CloseOnSignalReversal", out var closeOnSignal))
-                p.CloseOnSignalReversal = (int)closeOnSignal == 1;
-
-            // Moving Take Profit Exit
             if (paramSet.TryGetValue("MovingTPExitCalculationType", out var tpExitCalc))
                 p.MovingTPExitCalculationType = (PriceCalculationType)(int)tpExitCalc;
-            if (paramSet.TryGetValue("MovingTPExitStartPercent", out var tpExitStart))
-                p.MovingTPExitStartPercent = tpExitStart;
-            if (paramSet.TryGetValue("MovingTPExitSlippage", out var tpExitSlippage))
-                p.MovingTPExitSlippage = tpExitSlippage;
-            if (paramSet.TryGetValue("MovingTPExitTimeoutMinutes", out var tpExitTimeout))
-                p.MovingTPExitTimeoutMinutes = (int)tpExitTimeout;
 
-            // Trailing Stop Exit
+            // ✅ Проверяем тип расчета для выхода
+            switch (p.MovingTPExitCalculationType)
+            {
+                case PriceCalculationType.Percentage:
+                    if (paramSet.TryGetValue("MovingTPExitTargetPercent", out var tpExitTargetPercent))
+                        p.MovingTPExitStartPercent = tpExitTargetPercent;  // ← существующее поле
+                    if (paramSet.TryGetValue("MovingTPExitOffsetPercent", out var tpExitOffsetPercent))
+                        p.MovingTPExitOffsetPercent = tpExitOffsetPercent;
+                    break;
+
+                case PriceCalculationType.ATR:
+                    if (paramSet.TryGetValue("MovingTPExitTargetAtrMultiplier", out var tpExitTargetAtr))
+                        p.MovingTPExitTargetAtrMultiplier = tpExitTargetAtr;  // ✅ НОВОЕ ПОЛЕ!
+                    if (paramSet.TryGetValue("MovingTPExitOffsetAtrMultiplier", out var tpExitOffsetAtr))
+                        p.MovingTPExitOffsetAtrMultiplier = tpExitOffsetAtr;  // ✅ НОВОЕ ПОЛЕ!
+                    break;
+
+                case PriceCalculationType.Absolute:
+                    if (paramSet.TryGetValue("MovingTPExitTargetAbsolute", out var tpExitTargetAbsolute))
+                        p.MovingTPExitStartAbsolute = tpExitTargetAbsolute;  // ← существующее поле
+                    if (paramSet.TryGetValue("MovingTPExitOffsetAbsolute", out var tpExitOffsetAbsolute))
+                        p.MovingTPExitOffsetAbsolute = tpExitOffsetAbsolute;
+                    break;
+            }
+
+            // ============================================================
+            // 8. TRAILING STOP EXIT (выход)
+            // ============================================================
             if (paramSet.TryGetValue("TrailingStopExitCalculationType", out var tsCalc))
                 p.TrailingStopExitCalculationType = (PriceCalculationType)(int)tsCalc;
-            if (paramSet.TryGetValue("TrailingStopExitDistancePercent", out var tsDist))
-                p.TrailingStopExitDistancePercent = tsDist;
+            if (paramSet.TryGetValue("TrailingStopExitDistancePercent", out var tsDistPercent))
+                p.TrailingStopExitDistancePercent = tsDistPercent;
+            if (paramSet.TryGetValue("TrailingStopExitDistanceAbsolute", out var tsDistAbsolute))
+                p.TrailingStopExitDistanceAbsolute = tsDistAbsolute;
+            if (paramSet.TryGetValue("TrailingStopAtrMultiplier", out var tsAtrMultiplier))
+                p.MovingTPExitAtrMultiplier = tsAtrMultiplier;
             if (paramSet.TryGetValue("TrailingStopExitSlippage", out var tsSlippage))
                 p.TrailingStopExitSlippage = tsSlippage;
             if (paramSet.TryGetValue("TrailingStopExitActivationPercent", out var tsActivation))
@@ -4424,37 +4679,53 @@ namespace MoneyGenerator_v5.ViewModels
             if (paramSet.TryGetValue("ProtectiveStopPercent", out var protectiveStop))
                 p.ProtectiveStopPercent = protectiveStop;
 
-            // Take Profit (для Market выхода)
-            if (paramSet.TryGetValue("TakeProfitCalculationType", out var tpCalc))
-                p.TakeProfitCalculationType = (PriceCalculationType)(int)tpCalc;
-            if (paramSet.TryGetValue("TakeProfitPercent", out var tpPercent))
-                p.TakeProfitPercent = tpPercent;
-            if (paramSet.TryGetValue("TakeProfitActivationPrice", out var tpActivation))
-                p.TakeProfitActivationPrice = tpActivation;
-            if (paramSet.TryGetValue("TakeProfitSlippage", out var tpSlippage))
-                p.TakeProfitSlippage = tpSlippage;
+            // ============================================================
+            // 9. LEVEL CROSSING ENTRY (вход)
+            // ============================================================
+            if (paramSet.TryGetValue("LevelCrossingEntryProtectiveStopPercent", out var entryProtStop))
+                p.LevelCrossingEntryProtectiveStopPercent = entryProtStop;
+            if (paramSet.TryGetValue("LevelCrossingEntryProtectiveStopDistancePercent", out var entryProtStopDist))
+                p.LevelCrossingEntryProtectiveStopDistancePercent = entryProtStopDist;
 
-            // Stop Loss (для Market выхода)
-            if (paramSet.TryGetValue("StopLossCalculationType", out var slCalc))
-                p.StopLossCalculationType = (PriceCalculationType)(int)slCalc;
-            if (paramSet.TryGetValue("StopLossPercent", out var slPercent))
-                p.StopLossPercent = slPercent;
-            if (paramSet.TryGetValue("StopLossActivationPrice", out var slActivation))
-                p.StopLossActivationPrice = slActivation;
-            if (paramSet.TryGetValue("StopLossSlippage", out var slSlippage))
-                p.StopLossSlippage = slSlippage;
-
-            // Level Crossing Exit
+            // ============================================================
+            // 10. LEVEL CROSSING EXIT (выход)
+            // ============================================================
             if (paramSet.TryGetValue("LevelCrossingExitProtectiveStopPercent", out var exitProtStop))
                 p.LevelCrossingExitProtectiveStopPercent = exitProtStop;
             if (paramSet.TryGetValue("LevelCrossingExitProtectiveStopDistancePercent", out var exitProtStopDist))
                 p.LevelCrossingExitProtectiveStopDistancePercent = exitProtStopDist;
 
             // ============================================================
-            // 5. ОБЩИЕ ПАРАМЕТРЫ
+            // 11. TAKE PROFIT (для Market выхода)
             // ============================================================
-            if (paramSet.TryGetValue("AtrMultiplier", out var atrMultiplier))
-                p.AtrMultiplier = atrMultiplier;
+            if (paramSet.TryGetValue("TakeProfitCalculationType", out var tpCalc))
+                p.TakeProfitCalculationType = (PriceCalculationType)(int)tpCalc;
+            if (paramSet.TryGetValue("TakeProfitPercent", out var tpPercent))
+                p.TakeProfitPercent = tpPercent;
+            if (paramSet.TryGetValue("TakeProfitAtrMultiplier", out var tpAtrMultiplier))
+                p.MovingTPExitAtrMultiplier = tpAtrMultiplier;
+            if (paramSet.TryGetValue("TakeProfitActivationPrice", out var tpActivation))
+                p.TakeProfitActivationPrice = tpActivation;
+            if (paramSet.TryGetValue("TakeProfitSlippage", out var tpSlippage))
+                p.TakeProfitSlippage = tpSlippage;
+
+            // ============================================================
+            // 12. STOP LOSS (для Market выхода)
+            // ============================================================
+            if (paramSet.TryGetValue("StopLossCalculationType", out var slCalc))
+                p.StopLossCalculationType = (PriceCalculationType)(int)slCalc;
+            if (paramSet.TryGetValue("StopLossPercent", out var slPercent))
+                p.StopLossPercent = slPercent;
+            if (paramSet.TryGetValue("StopLossAtrMultiplier", out var slAtrMultiplier))
+                p.MovingTPEntryAtrMultiplier = slAtrMultiplier;
+            if (paramSet.TryGetValue("StopLossActivationPrice", out var slActivation))
+                p.StopLossActivationPrice = slActivation;
+            if (paramSet.TryGetValue("StopLossSlippage", out var slSlippage))
+                p.StopLossSlippage = slSlippage;
+
+            // ============================================================
+            // 13. РАЗМЕР ПОЗИЦИИ
+            // ============================================================
             if (paramSet.TryGetValue("OrderSizePercent", out var orderSize))
                 p.OrderSizePercent = orderSize;
 

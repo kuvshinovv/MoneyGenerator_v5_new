@@ -1456,7 +1456,7 @@ namespace MoneyGenerator_v5.Strategies
                         _parameters.StopLossCalculationType,
                         _parameters.StopLossPercent,
                         _parameters.StopLossAbsolute,
-                        _parameters.AtrMultiplier,
+                        _parameters.AtrOffSetMultiplierEntry,
                         _indicatorValues.AtrValue,
                         _parameters.StopLossActivationPrice,
                         _parameters.StopLossSlippage);
@@ -1467,7 +1467,7 @@ namespace MoneyGenerator_v5.Strategies
                         _parameters.TakeProfitCalculationType,
                         _parameters.TakeProfitPercent,
                         _parameters.TakeProfitAbsolute,
-                        _parameters.AtrMultiplier,
+                        _parameters.AtrOffSetMultiplierEntry,
                         _indicatorValues.AtrValue,
                         _parameters.TakeProfitActivationPrice,
                         _parameters.TakeProfitSlippage);
@@ -2924,42 +2924,80 @@ namespace MoneyGenerator_v5.Strategies
             decimal minProfitPercent = 0.1m;
             return currentPnLPercent >= minProfitPercent;
         }
+        
+        
+        /// <summary>
+        /// Расчет уровня активации скользящего TP на выходе
+        /// </summary>
+        /// <param name="direction">Направление позиции (Long/Short)</param>
+        /// <param name="currentPrice">Текущая цена</param>
+        /// <param name="bestPrice">Лучшая цена (экстремум после открытия позиции)</param>
+        /// <returns>Целевой уровень для выхода</returns>
         private decimal CalculateMovingTPExitTargetLevel(string direction, decimal currentPrice, decimal bestPrice)
         {
-            decimal targetLevel = 0;
-            decimal offset = CalculateMovingTPExitOffset();
+            if (bestPrice <= 0) return 0;
 
-            Debug.WriteLine($"DEBUG: РАСЧЕТ TP выхода {_instrument.Ticker}: Direction={direction}, CurrentPrice={currentPrice:F2}, " +
-                           $"BestPrice={bestPrice:F2}, Offset={offset:F4}, ATR={_indicatorValues.AtrValue:F4}");
+            decimal activationLevel = 0;
+            decimal offset = CalculateMovingTPExitOffset(bestPrice);
 
             if (direction == PositionDirection.Long)
             {
-                targetLevel = bestPrice - offset;
-                Debug.WriteLine($"DEBUG: {_instrument.Ticker} Лонг exit: Best={bestPrice:F2} - Offset={offset:F4} = Target={targetLevel:F4}");
+                // Для выхода из лонга: уровень активации НИЖЕ лучшей цены на отступ
+                // т.е. цена должна упасть на offset от максимума
+                activationLevel = bestPrice - offset;
             }
             else if (direction == PositionDirection.Short)
             {
-                targetLevel = bestPrice + offset;
-                Debug.WriteLine($"DEBUG: {_instrument.Ticker} Шорт exit: Best={bestPrice:F2} + Offset={offset:F4} = Target={targetLevel:F4}");
-            }
-            else
-            {
-                _logger.LogError($"ОШИБКА: Неизвестное направление: {direction}");
-                Debug.WriteLine($"ОШИБКА: Неизвестное направление: {direction}");
-                return 0;
+                // Для выхода из шорта: уровень активации ВЫШЕ лучшей цены на отступ
+                // т.е. цена должна вырасти на offset от минимума
+                activationLevel = bestPrice + offset;
             }
 
+            // Учитываем проскальзывание
             if (_parameters.MovingTPExitSlippage > 0)
             {
-                decimal slippageAmount = targetLevel * (_parameters.MovingTPExitSlippage / 100);
+                decimal slippageAmount = activationLevel * (_parameters.MovingTPExitSlippage / 100);
                 if (direction == PositionDirection.Long)
-                    targetLevel -= slippageAmount;
-                else if (direction == PositionDirection.Short)
-                    targetLevel += slippageAmount;
+                    activationLevel -= slippageAmount;
+                else
+                    activationLevel += slippageAmount;
             }
 
-            return targetLevel;
+            return activationLevel;
         }
+
+        /// <summary>
+        /// Расчет отступа для скользящего TP на выходе
+        /// </summary>
+        private decimal CalculateMovingTPExitOffset(decimal referencePrice)
+        {
+            decimal offset = 0;
+
+            switch (_parameters.MovingTPExitCalculationType)
+            {
+                case PriceCalculationType.Percentage:
+                    offset = referencePrice * (_parameters.MovingTPExitOffsetPercent / 100);
+                    break;
+
+                case PriceCalculationType.Absolute:
+                    offset = _parameters.MovingTPExitOffsetAbsolute;
+                    break;
+
+                case PriceCalculationType.ATR:
+                    offset = _indicatorValues.AtrValue * _parameters.MovingTPExitAtrMultiplier;
+                    if (offset <= 0)
+                        offset = referencePrice * 0.01m;
+                    break;
+            }
+
+            decimal minOffset = referencePrice * 0.001m;
+            if (offset < minOffset)
+                offset = minOffset;
+
+            return offset;
+        }
+        
+        
         private decimal CalculateMovingTPExitOffset()
         {
             decimal offset = 0;
@@ -2975,7 +3013,7 @@ namespace MoneyGenerator_v5.Strategies
                     break;
 
                 case PriceCalculationType.ATR:
-                    offset = _indicatorValues.AtrValue * _parameters.AtrMultiplier;
+                    offset = _indicatorValues.AtrValue * _parameters.AtrOffSetMultiplierExit;
                     if (offset <= 0) offset = _lastPrice * 0.02m;
                     break;
             }
@@ -3319,12 +3357,12 @@ namespace MoneyGenerator_v5.Strategies
             {
                 // Расчет тейк-профита для выхода
                 takeProfit = CalculateTakeProfitPrice(entryPrice, direction, _parameters.TakeProfitCalculationType,
-                    _parameters.TakeProfitPercent, _parameters.TakeProfitAbsolute, _parameters.AtrMultiplier,
+                    _parameters.TakeProfitPercent, _parameters.TakeProfitAbsolute, _parameters.AtrOffSetMultiplierExit,
                     _indicatorValues.AtrValue, _parameters.TakeProfitActivationPrice, _parameters.TakeProfitSlippage);
 
                 // Расчет стоп-лосса
                 stopLoss = CalculateStopLossPrice(entryPrice, direction, _parameters.StopLossCalculationType,
-                   _parameters.StopLossPercent, _parameters.StopLossAbsolute, _parameters.AtrMultiplier,
+                   _parameters.StopLossPercent, _parameters.StopLossAbsolute, _parameters.AtrOffSetMultiplierExit,
                    _indicatorValues.AtrValue, _parameters.StopLossActivationPrice, _parameters.StopLossSlippage);
 
                 // Учитываем проскальзывание
@@ -3767,10 +3805,24 @@ namespace MoneyGenerator_v5.Strategies
 
             return stopLimitPrice;
         }
-        private decimal CalculateTakeProfitPrice(decimal entryPrice, string direction, PriceCalculationType calculationType,
-            decimal percent, decimal absolute, decimal atrMultiplier, decimal atrValue,
-            decimal activationPrice, decimal slippage)
+
+
+        /// <summary>
+        /// Расчет цены тейк-профита
+        /// </summary>
+        private decimal CalculateTakeProfitPrice(
+            decimal entryPrice,
+            string direction,
+            PriceCalculationType calculationType,
+            decimal percent,
+            decimal absolute,
+            decimal atrMultiplier,
+            decimal atrValue,
+            decimal activationPrice,
+            decimal slippage)
         {
+            if (entryPrice <= 0) return 0;
+
             decimal takeProfitPrice = 0;
 
             switch (calculationType)
@@ -3800,7 +3852,7 @@ namespace MoneyGenerator_v5.Strategies
                     }
                     else
                     {
-                        // Без ATR используем процентный расчет как fallback
+                        // Fallback
                         if (direction == PositionDirection.Long)
                             takeProfitPrice = entryPrice * (1 + percent / 100);
                         else
@@ -3830,10 +3882,24 @@ namespace MoneyGenerator_v5.Strategies
 
             return takeProfitPrice;
         }
-        private decimal CalculateStopLossPrice(decimal entryPrice, string direction, PriceCalculationType calculationType,
-             decimal percent, decimal absolute, decimal atrMultiplier, decimal atrValue,
-             decimal activationPrice, decimal slippage)
+
+
+        /// <summary>
+        /// Расчет цены стоп-лосса
+        /// </summary>
+        private decimal CalculateStopLossPrice(
+            decimal entryPrice,
+            string direction,
+            PriceCalculationType calculationType,
+            decimal percent,
+            decimal absolute,
+            decimal atrMultiplier,
+            decimal atrValue,
+            decimal activationPrice,
+            decimal slippage)
         {
+            if (entryPrice <= 0) return 0;
+
             decimal stopLossPrice = 0;
 
             switch (calculationType)
@@ -3863,7 +3929,7 @@ namespace MoneyGenerator_v5.Strategies
                     }
                     else
                     {
-                        // Без ATR используем процентный расчет как fallback
+                        // Fallback: используем процентный расчет
                         if (direction == PositionDirection.Long)
                             stopLossPrice = entryPrice * (1 - percent / 100);
                         else
@@ -3893,51 +3959,88 @@ namespace MoneyGenerator_v5.Strategies
 
             return stopLossPrice;
         }
+
+
+        /// <summary>
+        /// Расчет уровня активации скользящего TP на входе
+        /// </summary>
+        /// <param name="direction">Направление (Long/Short)</param>
+        /// <param name="currentPrice">Текущая цена</param>
+        /// <param name="bestPrice">Лучшая цена (экстремум)</param>
+        /// <returns>Целевой уровень для входа</returns>
         private decimal CalculateMovingTPEntryTargetLevel(string direction, decimal currentPrice, decimal bestPrice)
         {
-            decimal targetLevel = 0;
-            decimal offset = 0;
+            if (bestPrice <= 0) return 0;
 
-            // Расчет отступа в зависимости от типа расчета
-            switch (_parameters.MovingTPEntryCalculationType)
-            {
-                case PriceCalculationType.Percentage:
-                    offset = bestPrice * (_parameters.MovingTPEntryTargetPercent / 100);
-                    break;
+            decimal activationLevel = 0;
+            decimal offset = CalculateMovingTPEntryOffset(bestPrice);
 
-                case PriceCalculationType.Absolute:
-                    offset = _parameters.MovingTPEntryTargetAbsolute;
-                    break;
-
-                case PriceCalculationType.ATR:
-                    offset = _indicatorValues.AtrValue * _parameters.AtrMultiplier;
-                    break;
-            }
-
-            // Расчет целевого уровня в зависимости от направления
+            // Расчет уровня активации в зависимости от направления
             if (direction == PositionDirection.Long)
             {
-                // Для лонга: целевой уровень НИЖЕ лучшей цены на отступ
-                targetLevel = bestPrice + offset;
+                // Для лонга: уровень активации ВЫШЕ лучшей цены на отступ
+                // т.е. цена должна вырасти на offset, чтобы войти
+                activationLevel = bestPrice + offset;
             }
             else if (direction == PositionDirection.Short)
             {
-                // Для шорта: целевой уровень ВЫШЕ лучшей цены на отступ
-                targetLevel = bestPrice - offset;
+                // Для шорта: уровень активации НИЖЕ лучшей цены на отступ
+                // т.е. цена должна упасть на offset, чтобы войти
+                activationLevel = bestPrice - offset;
             }
 
             // Учитываем проскальзывание
             if (_parameters.MovingTPEntrySlippage > 0)
             {
-                decimal slippageAmount = targetLevel * (_parameters.MovingTPEntrySlippage / 100);
+                decimal slippageAmount = activationLevel * (_parameters.MovingTPEntrySlippage / 100);
                 if (direction == PositionDirection.Long)
-                    targetLevel += slippageAmount; // Для лонга добавляем проскальзывание (лучшая цена для входа)
+                    activationLevel += slippageAmount;
                 else
-                    targetLevel -= slippageAmount; // Для шорта вычитаем проскальзывание
+                    activationLevel -= slippageAmount;
             }
 
-            return targetLevel;
+            return activationLevel;
         }
+
+        /// <summary>
+        /// Расчет отступа для скользящего TP на входе
+        /// </summary>
+        private decimal CalculateMovingTPEntryOffset(decimal referencePrice)
+        {
+            decimal offset = 0;
+
+            switch (_parameters.MovingTPEntryCalculationType)
+            {
+                case PriceCalculationType.Percentage:
+                    // Отступ в процентах от referencePrice
+                    offset = referencePrice * (_parameters.MovingTPEntryOffsetPercent / 100);
+                    break;
+
+                case PriceCalculationType.Absolute:
+                    // Абсолютный отступ
+                    offset = _parameters.MovingTPEntryOffsetAbsolute;
+                    break;
+
+                case PriceCalculationType.ATR:
+                    // Отступ на основе ATR
+                    offset = _indicatorValues.AtrValue * _parameters.MovingTPEntryAtrMultiplier;
+                    if (offset <= 0)
+                        offset = referencePrice * 0.01m; // Fallback: 1% от цены
+                    break;
+            }
+
+            // Минимальный отступ (0.1% от цены)
+            decimal minOffset = referencePrice * 0.001m;
+            if (offset < minOffset)
+                offset = minOffset;
+
+            return offset;
+        }
+
+
+
+
+
         // отслеживание нового экстремума  минимума или максимума для выхода по трейлинг тейку
         private decimal CalculateMovingTPExitStartLevel(string direction, decimal currentPrice, decimal bestPrice)
         {
@@ -3988,44 +4091,54 @@ namespace MoneyGenerator_v5.Strategies
             return targetLevel;
 
         }
+
+
+        /// <summary>
+        /// Расчет уровня трейлинг-стопа
+        /// </summary>
+        /// <param name="direction">Направление позиции</param>
+        /// <param name="currentPrice">Текущая цена</param>
+        /// <returns>Уровень стоп-лосса</returns>
         private decimal CalculateTrailingStopExitLevel(string direction, decimal currentPrice)
         {
-            decimal stopLevel = 0;
+            if (currentPrice <= 0) return 0;
 
+            decimal stopLevel = 0;
+            decimal distance = 0;
+
+            // Расчет дистанции стопа
             switch (_parameters.TrailingStopExitCalculationType)
             {
                 case PriceCalculationType.Percentage:
-                    if (direction == PositionDirection.Long)
-                        stopLevel = currentPrice * (1 - _parameters.TrailingStopExitDistancePercent / 100);
-                    else
-                        stopLevel = currentPrice * (1 + _parameters.TrailingStopExitDistancePercent / 100);
+                    distance = currentPrice * (_parameters.TrailingStopExitDistancePercent / 100);
                     break;
 
                 case PriceCalculationType.Absolute:
-                    if (direction == PositionDirection.Long)
-                        stopLevel = currentPrice - _parameters.TrailingStopExitDistanceAbsolute;
-                    else
-                        stopLevel = currentPrice + _parameters.TrailingStopExitDistanceAbsolute;
+                    distance = _parameters.TrailingStopExitDistanceAbsolute;
                     break;
 
                 case PriceCalculationType.ATR:
-                    if (_indicatorValues.AtrValue > 0)
-                    {
-                        decimal atrOffset = _indicatorValues.AtrValue * _parameters.AtrMultiplier;
-                        if (direction == PositionDirection.Long)
-                            stopLevel = currentPrice - atrOffset;
-                        else
-                            stopLevel = currentPrice + atrOffset;
-                    }
-                    else
-                    {
-                        // Без ATR используем процентный расчет как fallback
-                        if (direction == PositionDirection.Long)
-                            stopLevel = currentPrice * (1 - _parameters.TrailingStopExitDistancePercent / 100);
-                        else
-                            stopLevel = currentPrice * (1 + _parameters.TrailingStopExitDistancePercent / 100);
-                    }
+                    distance = _indicatorValues.AtrValue * _parameters.TrailingStopExitAtrMultiplier;
+                    if (distance <= 0)
+                        distance = currentPrice * 0.01m;
                     break;
+            }
+
+            // Минимальная дистанция
+            decimal minDistance = currentPrice * 0.001m;
+            if (distance < minDistance)
+                distance = minDistance;
+
+            // Расчет уровня стопа
+            if (direction == PositionDirection.Long)
+            {
+                // Для лонга: стоп НИЖЕ текущей цены
+                stopLevel = currentPrice - distance;
+            }
+            else if (direction == PositionDirection.Short)
+            {
+                // Для шорта: стоп ВЫШЕ текущей цены
+                stopLevel = currentPrice + distance;
             }
 
             // Учитываем проскальзывание
@@ -4040,6 +4153,8 @@ namespace MoneyGenerator_v5.Strategies
 
             return stopLevel;
         }
+
+
         private decimal CalculateOffset()
         {
             decimal offset = 0;
@@ -4056,7 +4171,7 @@ namespace MoneyGenerator_v5.Strategies
                     break;
 
                 case PriceCalculationType.ATR:
-                    offset = _indicatorValues.AtrValue * _parameters.AtrMultiplier;
+                    offset = _indicatorValues.AtrValue * _parameters.AtrOffSetMultiplierExit;
                     if (offset <= 0) offset = 1.0m; // Запасной вариант
                     break;
             }
@@ -4511,7 +4626,7 @@ namespace MoneyGenerator_v5.Strategies
         #endregion
 
         #region Event Handlers
-        private void OnParametersChanged(RsiStrategyParameters parameters)
+        public void OnParametersChanged(RsiStrategyParameters parameters)
         {
             _logger.LogInformation("RSI parameters updated");
             _ = Task.Run(async () =>
@@ -4679,7 +4794,7 @@ namespace MoneyGenerator_v5.Strategies
                     movingTPEntryPanel.Children.Add(movingTPEntryCalcPanel);
 
                     var targetPercentPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
-                    targetPercentPanel.Children.Add(new TextBlock { Text = "Целевой уровень (%):", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
+                    targetPercentPanel.Children.Add(new TextBlock { Text = "ЦЕЛЬ (%):", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
                     var targetPercentTextBox = new TextBox
                     {
                         Text = _parameters.MovingTPEntryTargetPercent.ToString(),
@@ -4691,18 +4806,62 @@ namespace MoneyGenerator_v5.Strategies
                     targetPercentPanel.Children.Add(targetPercentTextBox);
                     movingTPEntryPanel.Children.Add(targetPercentPanel);
 
-                    var atrOffsetPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
+                    /*var atrOffsetPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
                     atrOffsetPanel.Children.Add(new TextBlock { Text = "Отступ в АТР:", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
                     var atrOffsetTextBox = new TextBox
                     {
-                        Text = _parameters.AtrMultiplier.ToString(),
+                        Text = _parameters.AtrOffSetMultiplierEntry.ToString(),
                         Width = 80
                     };
                     atrOffsetTextBox.SetBinding(TextBox.TextProperty,
-                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrMultiplier))
+                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrOffSetMultiplierEntry))
                         { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
                     atrOffsetPanel.Children.Add(atrOffsetTextBox);
+                    movingTPEntryPanel.Children.Add(atrOffsetPanel);*/
+
+
+
+                    var atrOffsetPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
+                    atrOffsetPanel.Children.Add(new TextBlock
+                    {
+                        Text = "ЦЕЛЬ (множитель ATR):",
+                        Margin = new Thickness(0, 0, 5, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
+                    var targetAtrTextBox = new TextBox
+                    {
+                        Text = _parameters.MovingTPEntryTargetAtrMultiplier.ToString(),  // ✅ ЦЕЛЬ
+                        Width = 80
+                    };
+                    targetAtrTextBox.SetBinding(TextBox.TextProperty,
+                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.MovingTPEntryTargetAtrMultiplier))
+                        { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
+                    atrOffsetPanel.Children.Add(targetAtrTextBox);
                     movingTPEntryPanel.Children.Add(atrOffsetPanel);
+
+                    var offsetAtrPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
+                    offsetAtrPanel.Children.Add(new TextBlock
+                    {
+                        Text = "ОТСТУП (множитель ATR):",
+                        Margin = new Thickness(0, 0, 5, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
+                    var offsetAtrTextBox = new TextBox
+                    {
+                        Text = _parameters.MovingTPEntryOffsetAtrMultiplier.ToString(),  // ✅ ОТСТУП
+                        Width = 80
+                    };
+                    offsetAtrTextBox.SetBinding(TextBox.TextProperty,
+                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.MovingTPEntryOffsetAtrMultiplier))
+                        { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
+                    offsetAtrPanel.Children.Add(offsetAtrTextBox);
+                    movingTPEntryPanel.Children.Add(offsetAtrPanel);
+
+
+
+
+
+
 
                     var entrySlippagePanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
                     entrySlippagePanel.Children.Add(new TextBlock { Text = "Проскальзывание (%):", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
@@ -4860,8 +5019,14 @@ namespace MoneyGenerator_v5.Strategies
                     var movingTPExitGroup = CreateParameterGroup("Скользящий тейк-профит на выходе");
                     var movingTPExitPanel = new StackPanel();
 
+                    // Тип расчета
                     var movingTPExitCalcPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
-                    movingTPExitCalcPanel.Children.Add(new TextBlock { Text = "Расчет старт. уровня:", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
+                    movingTPExitCalcPanel.Children.Add(new TextBlock
+                    {
+                        Text = "Расчет старт. уровня:",
+                        Margin = new Thickness(0, 0, 5, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
                     var movingTPExitCalcCombo = new ComboBox
                     {
                         ItemsSource = Enum.GetValues(typeof(PriceCalculationType)),
@@ -4874,8 +5039,15 @@ namespace MoneyGenerator_v5.Strategies
                     movingTPExitCalcPanel.Children.Add(movingTPExitCalcCombo);
                     movingTPExitPanel.Children.Add(movingTPExitCalcPanel);
 
+
+                    // Для Percentage и Absolute режимов
                     var startPercentPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
-                    startPercentPanel.Children.Add(new TextBlock { Text = "Стартовый уровень (%):", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
+                    startPercentPanel.Children.Add(new TextBlock
+                    {
+                        Text = "ЦЕЛЬ (%):",
+                        Margin = new Thickness(0, 0, 5, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
                     var startPercentTextBox = new TextBox
                     {
                         Text = _parameters.MovingTPExitStartPercent.ToString(),
@@ -4887,21 +5059,53 @@ namespace MoneyGenerator_v5.Strategies
                     startPercentPanel.Children.Add(startPercentTextBox);
                     movingTPExitPanel.Children.Add(startPercentPanel);
 
-                    var atrOffsetPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
-                    atrOffsetPanel.Children.Add(new TextBlock { Text = "Отступ в АТР:", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
-                    var atrOffsetTextBox = new TextBox
+                    // ✅ ИСПРАВЛЕНО: ЦЕЛЬ и ОТСТУП разделены правильно
+                    // Для ATR режима - два отдельных поля
+                    var targetAtrPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
+                    targetAtrPanel.Children.Add(new TextBlock
                     {
-                        Text = _parameters.AtrMultiplier.ToString(),
+                        Text = "ЦЕЛЬ (множитель ATR):",
+                        Margin = new Thickness(0, 0, 5, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
+                    var targetAtrTextBox = new TextBox
+                    {
+                        Text = _parameters.MovingTPExitTargetAtrMultiplier.ToString(),
                         Width = 80
                     };
-                    atrOffsetTextBox.SetBinding(TextBox.TextProperty,
-                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrMultiplier))
+                    targetAtrTextBox.SetBinding(TextBox.TextProperty,
+                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.MovingTPExitTargetAtrMultiplier))
                         { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
-                    atrOffsetPanel.Children.Add(atrOffsetTextBox);
-                    movingTPExitPanel.Children.Add(atrOffsetPanel);
+                    targetAtrPanel.Children.Add(targetAtrTextBox);
+                    movingTPExitPanel.Children.Add(targetAtrPanel);
+
+                    var offsetAtrPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
+                    offsetAtrPanel.Children.Add(new TextBlock
+                    {
+                        Text = "ОТСТУП (множитель ATR):",
+                        Margin = new Thickness(0, 0, 5, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
+                    var offsetAtrTextBox = new TextBox
+                    {
+                        Text = _parameters.MovingTPExitOffsetAtrMultiplier.ToString(),
+                        Width = 80
+                    };
+                    offsetAtrTextBox.SetBinding(TextBox.TextProperty,
+                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.MovingTPExitOffsetAtrMultiplier))
+                        { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
+                    offsetAtrPanel.Children.Add(offsetAtrTextBox);
+                    movingTPExitPanel.Children.Add(offsetAtrPanel);
+
+                    
 
                     var exitSlippagePanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
-                    exitSlippagePanel.Children.Add(new TextBlock { Text = "Проскальзывание (%):", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
+                    exitSlippagePanel.Children.Add(new TextBlock
+                    {
+                        Text = "Проскальзывание (%):",
+                        Margin = new Thickness(0, 0, 5, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
                     var exitSlippageTextBox = new TextBox
                     {
                         Text = _parameters.MovingTPExitSlippage.ToString(),
@@ -4914,7 +5118,12 @@ namespace MoneyGenerator_v5.Strategies
                     movingTPExitPanel.Children.Add(exitSlippagePanel);
 
                     var timeoutPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 5, 0, 5) };
-                    timeoutPanel.Children.Add(new TextBlock { Text = "Тайм-аут (минуты):", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
+                    timeoutPanel.Children.Add(new TextBlock
+                    {
+                        Text = "Тайм-аут (минуты):",
+                        Margin = new Thickness(0, 0, 5, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
                     var timeoutTextBox = new TextBox
                     {
                         Text = _parameters.MovingTPExitTimeoutMinutes.ToString(),
@@ -5114,11 +5323,11 @@ namespace MoneyGenerator_v5.Strategies
                         tpAtrPanel.Children.Add(new TextBlock { Text = "Множитель ATR:", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
                         var tpAtrTextBox = new TextBox
                         {
-                            Text = _parameters.AtrMultiplier.ToString(),
+                            Text = _parameters.AtrOffSetMultiplierExit.ToString(),
                             Width = 80
                         };
                         tpAtrTextBox.SetBinding(TextBox.TextProperty,
-                            new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrMultiplier))
+                            new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrOffSetMultiplierExit))
                             { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
                         tpAtrPanel.Children.Add(tpAtrTextBox);
                         exitParamsPanel.Children.Add(tpAtrPanel);
@@ -5204,11 +5413,11 @@ namespace MoneyGenerator_v5.Strategies
                         slAtrPanel.Children.Add(new TextBlock { Text = "Множитель ATR:", Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
                         var slAtrTextBox = new TextBox
                         {
-                            Text = _parameters.AtrMultiplier.ToString(),
+                            Text = _parameters.AtrOffSetMultiplierExit.ToString(),
                             Width = 80
                         };
                         slAtrTextBox.SetBinding(TextBox.TextProperty,
-                            new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrMultiplier))
+                            new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrOffSetMultiplierExit))
                             { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
                         slAtrPanel.Children.Add(slAtrTextBox);
                         exitParamsPanel.Children.Add(slAtrPanel);
@@ -5889,11 +6098,11 @@ namespace MoneyGenerator_v5.Strategies
                 atrOffsetPanel.Children.Add(new TextBlock { Text = "Отступ в АТР:", Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center });
                 var atrOffsetTextBox = new TextBox
                 {
-                    Text = _parameters.AtrMultiplier.ToString(),
+                    Text = _parameters.AtrOffSetMultiplierEntry.ToString(),
                     Width = 80
                 };
                 atrOffsetTextBox.SetBinding(TextBox.TextProperty,
-                    new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrMultiplier))
+                    new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrOffSetMultiplierEntry))
                     { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
                 atrOffsetPanel.Children.Add(atrOffsetTextBox);
                 movingTPEntryPanel.Children.Add(atrOffsetPanel);
@@ -6069,11 +6278,11 @@ namespace MoneyGenerator_v5.Strategies
                 atrOffsetPanel.Children.Add(new TextBlock { Text = "Отступ в АТР:", Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center });
                 var atrOffsetTextBox = new TextBox
                 {
-                    Text = _parameters.AtrMultiplier.ToString(),
+                    Text = _parameters.AtrOffSetMultiplierExit.ToString(),
                     Width = 80
                 };
                 atrOffsetTextBox.SetBinding(TextBox.TextProperty,
-                    new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrMultiplier))
+                    new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrOffSetMultiplierExit))
                     { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
                 atrOffsetPanel.Children.Add(atrOffsetTextBox);
                 movingTPExitPanel.Children.Add(atrOffsetPanel);
@@ -6289,11 +6498,11 @@ namespace MoneyGenerator_v5.Strategies
                     tpAtrPanel.Children.Add(new TextBlock { Text = "Множитель ATR:", Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center });
                     var tpAtrTextBox = new TextBox
                     {
-                        Text = _parameters.AtrMultiplier.ToString(),
+                        Text = _parameters.AtrOffSetMultiplierExit.ToString(),
                         Width = 80
                     };
                     tpAtrTextBox.SetBinding(TextBox.TextProperty,
-                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrMultiplier))
+                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrOffSetMultiplierExit))
                         { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
                     tpAtrPanel.Children.Add(tpAtrTextBox);
                     exitParamsPanel.Children.Add(tpAtrPanel);
@@ -6379,11 +6588,11 @@ namespace MoneyGenerator_v5.Strategies
                     slAtrPanel.Children.Add(new TextBlock { Text = "Множитель ATR:", Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center });
                     var slAtrTextBox = new TextBox
                     {
-                        Text = _parameters.AtrMultiplier.ToString(),
+                        Text = _parameters.AtrOffSetMultiplierExit.ToString(),
                         Width = 80
                     };
                     slAtrTextBox.SetBinding(TextBox.TextProperty,
-                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrMultiplier))
+                        new System.Windows.Data.Binding(nameof(RsiStrategyParameters.AtrOffSetMultiplierExit))
                         { Source = _parameters, Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
                     slAtrPanel.Children.Add(slAtrTextBox);
                     exitParamsPanel.Children.Add(slAtrPanel);
@@ -6808,9 +7017,15 @@ public class RsiIndicatorValues : ObservableObject
     }
 }
 
+// ============================================================
+// ИСПРАВЛЕННЫЕ ПАРАМЕТРЫ RsiStrategyParameters
+// ============================================================
+
 public class RsiStrategyParameters : ObservableObject
 {
-    // Параметры индикаторов
+    // ============================================================
+    // ПАРАМЕТРЫ ИНДИКАТОРОВ (без изменений)
+    // ============================================================
     private OscillatorType _oscillatorType = OscillatorType.Stochastic;
     public OscillatorType OscillatorType
     {
@@ -6874,7 +7089,9 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _stochSmoothD, value);
     }
 
-    // Параметры входа
+    // ============================================================
+    // ПАРАМЕТРЫ ВХОДА
+    // ============================================================
     private MoneyGenerator_v5.Strategies.OrderType _entryOrderType = MoneyGenerator_v5.Strategies.OrderType.LevelCrossingEntry;
     public MoneyGenerator_v5.Strategies.OrderType EntryOrderType
     {
@@ -6903,7 +7120,12 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _entrySlippage, value);
     }
 
-    // Параметры скользящего тейк-профита на ВХОДЕ
+    // ============================================================
+    // СКОЛЬЗЯЩИЙ ТЕЙК-ПРОФИТ НА ВХОДЕ (MOVING TAKE PROFIT ENTRY)
+    // ============================================================
+    /// <summary>
+    /// Тип расчета для скользящего TP на входе
+    /// </summary>
     private PriceCalculationType _movingTPEntryCalculationType = PriceCalculationType.ATR;
     public PriceCalculationType MovingTPEntryCalculationType
     {
@@ -6911,19 +7133,97 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _movingTPEntryCalculationType, value);
     }
 
-    private decimal _movingTPEntryTargetPercent = 2.5m;
-    public decimal MovingTPEntryTargetPercent
+    /// <summary>
+    /// УРОВЕНЬ АКТИВАЦИИ TP на входе (в процентах)
+    /// Цена, при достижении которой срабатывает вход
+    /// </summary>
+    private decimal _movingTPEntryActivationPercent = 2.0m;
+    public decimal MovingTPEntryActivationPercent
     {
-        get => _movingTPEntryTargetPercent;
-        set => SetProperty(ref _movingTPEntryTargetPercent, value);
+        get => _movingTPEntryActivationPercent;
+        set => SetProperty(ref _movingTPEntryActivationPercent, value);
     }
 
-    private decimal _movingTPEntryTargetAbsolute = 10.0m;
-    public decimal MovingTPEntryTargetAbsolute
+    /// <summary>
+    /// УРОВЕНЬ АКТИВАЦИИ TP на входе (в абсолютных величинах)
+    /// </summary>
+    private decimal _movingTPEntryActivationAbsolute = 10.0m;
+    public decimal MovingTPEntryActivationAbsolute
     {
-        get => _movingTPEntryTargetAbsolute;
-        set => SetProperty(ref _movingTPEntryTargetAbsolute, value);
+        get => _movingTPEntryActivationAbsolute;
+        set => SetProperty(ref _movingTPEntryActivationAbsolute, value);
     }
+
+    /// <summary>
+    /// ОТСТУП от экстремума для расчета уровня активации (в процентах)
+    /// Используется для расчета целевого уровня
+    /// </summary>
+    private decimal _movingTPEntryOffsetPercent = 0.5m;
+    public decimal MovingTPEntryOffsetPercent
+    {
+        get => _movingTPEntryOffsetPercent;
+        set => SetProperty(ref _movingTPEntryOffsetPercent, value);
+    }
+
+    /// <summary>
+    /// ОТСТУП от экстремума для расчета уровня активации (в абсолютных величинах)
+    /// </summary>
+    private decimal _movingTPEntryOffsetAbsolute = 2.0m;
+    public decimal MovingTPEntryOffsetAbsolute
+    {
+        get => _movingTPEntryOffsetAbsolute;
+        set => SetProperty(ref _movingTPEntryOffsetAbsolute, value);
+    }
+
+    /// <summary>
+    /// Множитель ATR для расчета отступа на входе
+    /// </summary>
+    private decimal _movingTPEntryAtrMultiplier = 1.5m;
+    public decimal MovingTPEntryAtrMultiplier
+    {
+        get => _movingTPEntryAtrMultiplier;
+        set => SetProperty(ref _movingTPEntryAtrMultiplier, value);
+    }
+
+    // ============================================================
+    // ✅ НОВЫЕ ПОЛЯ: ОТСТУП для входа (Moving Take Profit Entry)
+    // ============================================================
+    private decimal _movingTPEntryOffsetAtrMultiplier = 0.5m;
+    /// <summary>
+    /// ОТСТУП для скользящего TP на входе (множитель ATR)
+    /// </summary>
+    public decimal MovingTPEntryOffsetAtrMultiplier
+    {
+        get => _movingTPEntryOffsetAtrMultiplier;
+        set => SetProperty(ref _movingTPEntryOffsetAtrMultiplier, value);
+    }
+
+    // ============================================================
+    // ✅ НОВЫЕ ПОЛЯ: ЦЕЛЬ для выхода (Moving Take Profit Exit)
+    // ============================================================
+    private decimal _movingTPExitTargetAtrMultiplier = 1.5m;
+    /// <summary>
+    /// ЦЕЛЬ для скользящего TP на выходе (множитель ATR)
+    /// </summary>
+    public decimal MovingTPExitTargetAtrMultiplier
+    {
+        get => _movingTPExitTargetAtrMultiplier;
+        set => SetProperty(ref _movingTPExitTargetAtrMultiplier, value);
+    }
+
+    // ============================================================
+    // ✅ НОВЫЕ ПОЛЯ: ОТСТУП для выхода (Moving Take Profit Exit)
+    // ============================================================
+    private decimal _movingTPExitOffsetAtrMultiplier = 0.5m;
+    /// <summary>
+    /// ОТСТУП для скользящего TP на выходе (множитель ATR)
+    /// </summary>
+    public decimal MovingTPExitOffsetAtrMultiplier
+    {
+        get => _movingTPExitOffsetAtrMultiplier;
+        set => SetProperty(ref _movingTPExitOffsetAtrMultiplier, value);
+    }
+
 
     private decimal _movingTPEntrySlippage = 0.01m;
     public decimal MovingTPEntrySlippage
@@ -6939,43 +7239,12 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _movingTPEntryTimeoutMinutes, value);
     }
 
-
-    // Параметры для ВХОДА ПО ПЕРЕСЕЧЕНИЮ УРОВНЯ
-    private decimal _levelCrossingEntryProtectiveStopPercent = 0.25m;
-    public decimal LevelCrossingEntryProtectiveStopPercent
-    {
-        get => _levelCrossingEntryProtectiveStopPercent;
-        set => SetProperty(ref _levelCrossingEntryProtectiveStopPercent, value);
-    }
-
-    private decimal _levelCrossingEntryProtectiveStopDistancePercent = 0.25m;
-    public decimal LevelCrossingEntryProtectiveStopDistancePercent
-    {
-        get => _levelCrossingEntryProtectiveStopDistancePercent;
-        set => SetProperty(ref _levelCrossingEntryProtectiveStopDistancePercent, value);
-    }
-
-    // Параметры для ВЫХОДА ПО ПЕРЕСЕЧЕНИЮ УРОВНЯ
-    private decimal _levelCrossingExitProtectiveStopPercent = 0.25m;
-    public decimal LevelCrossingExitProtectiveStopPercent
-    {
-        get => _levelCrossingExitProtectiveStopPercent;
-        set => SetProperty(ref _levelCrossingExitProtectiveStopPercent, value);
-    }
-
-    private decimal _levelCrossingExitProtectiveStopDistancePercent = 0.25m;
-    public decimal LevelCrossingExitProtectiveStopDistancePercent
-    {
-        get => _levelCrossingExitProtectiveStopDistancePercent;
-        set => SetProperty(ref _levelCrossingExitProtectiveStopDistancePercent, value);
-    }
-
-
-
-
-
-
-    // Параметры скользящего тейк-профита на ВЫХОДЕ
+    // ============================================================
+    // СКОЛЬЗЯЩИЙ ТЕЙК-ПРОФИТ НА ВЫХОДЕ (MOVING TAKE PROFIT EXIT)
+    // ============================================================
+    /// <summary>
+    /// Тип расчета для скользящего TP на выходе
+    /// </summary>
     private PriceCalculationType _movingTPExitCalculationType = PriceCalculationType.ATR;
     public PriceCalculationType MovingTPExitCalculationType
     {
@@ -6983,18 +7252,55 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _movingTPExitCalculationType, value);
     }
 
-    private decimal _movingTPExitStartPercent = 2.0m;
-    public decimal MovingTPExitStartPercent
+    /// <summary>
+    /// УРОВЕНЬ АКТИВАЦИИ TP на выходе (в процентах)
+    /// Цена, при достижении которой срабатывает выход
+    /// </summary>
+    private decimal _movingTPExitActivationPercent = 2.0m;
+    public decimal MovingTPExitActivationPercent
     {
-        get => _movingTPExitStartPercent;
-        set => SetProperty(ref _movingTPExitStartPercent, value);
+        get => _movingTPExitActivationPercent;
+        set => SetProperty(ref _movingTPExitActivationPercent, value);
     }
 
-    private decimal _movingTPExitStartAbsolute = 10.0m;
-    public decimal MovingTPExitStartAbsolute
+    /// <summary>
+    /// УРОВЕНЬ АКТИВАЦИИ TP на выходе (в абсолютных величинах)
+    /// </summary>
+    private decimal _movingTPExitActivationAbsolute = 10.0m;
+    public decimal MovingTPExitActivationAbsolute
     {
-        get => _movingTPExitStartAbsolute;
-        set => SetProperty(ref _movingTPExitStartAbsolute, value);
+        get => _movingTPExitActivationAbsolute;
+        set => SetProperty(ref _movingTPExitActivationAbsolute, value);
+    }
+
+    /// <summary>
+    /// ОТСТУП от экстремума для расчета уровня активации (в процентах)
+    /// </summary>
+    private decimal _movingTPExitOffsetPercent = 0.5m;
+    public decimal MovingTPExitOffsetPercent
+    {
+        get => _movingTPExitOffsetPercent;
+        set => SetProperty(ref _movingTPExitOffsetPercent, value);
+    }
+
+    /// <summary>
+    /// ОТСТУП от экстремума для расчета уровня активации (в абсолютных величинах)
+    /// </summary>
+    private decimal _movingTPExitOffsetAbsolute = 2.0m;
+    public decimal MovingTPExitOffsetAbsolute
+    {
+        get => _movingTPExitOffsetAbsolute;
+        set => SetProperty(ref _movingTPExitOffsetAbsolute, value);
+    }
+
+    /// <summary>
+    /// Множитель ATR для расчета отступа на выходе
+    /// </summary>
+    private decimal _movingTPExitAtrMultiplier = 1.5m;
+    public decimal MovingTPExitAtrMultiplier
+    {
+        get => _movingTPExitAtrMultiplier;
+        set => SetProperty(ref _movingTPExitAtrMultiplier, value);
     }
 
     private decimal _movingTPExitSlippage = 0.01m;
@@ -7011,7 +7317,43 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _movingTPExitTimeoutMinutes, value);
     }
 
-    // Параметры трейлинг-стопа на выходе
+    // ============================================================
+    // ВХОД ПО ПЕРЕСЕЧЕНИЮ УРОВНЯ (LEVEL CROSSING ENTRY)
+    // ============================================================
+    private decimal _levelCrossingEntryProtectiveStopPercent = 0.25m;
+    public decimal LevelCrossingEntryProtectiveStopPercent
+    {
+        get => _levelCrossingEntryProtectiveStopPercent;
+        set => SetProperty(ref _levelCrossingEntryProtectiveStopPercent, value);
+    }
+
+    private decimal _levelCrossingEntryProtectiveStopDistancePercent = 0.25m;
+    public decimal LevelCrossingEntryProtectiveStopDistancePercent
+    {
+        get => _levelCrossingEntryProtectiveStopDistancePercent;
+        set => SetProperty(ref _levelCrossingEntryProtectiveStopDistancePercent, value);
+    }
+
+    // ============================================================
+    // ВЫХОД ПО ПЕРЕСЕЧЕНИЮ УРОВНЯ (LEVEL CROSSING EXIT)
+    // ============================================================
+    private decimal _levelCrossingExitProtectiveStopPercent = 0.25m;
+    public decimal LevelCrossingExitProtectiveStopPercent
+    {
+        get => _levelCrossingExitProtectiveStopPercent;
+        set => SetProperty(ref _levelCrossingExitProtectiveStopPercent, value);
+    }
+
+    private decimal _levelCrossingExitProtectiveStopDistancePercent = 0.25m;
+    public decimal LevelCrossingExitProtectiveStopDistancePercent
+    {
+        get => _levelCrossingExitProtectiveStopDistancePercent;
+        set => SetProperty(ref _levelCrossingExitProtectiveStopDistancePercent, value);
+    }
+
+    // ============================================================
+    // ТРЕЙЛИНГ-СТОП НА ВЫХОДЕ (TRAILING STOP EXIT)
+    // ============================================================
     private MoneyGenerator_v5.Strategies.OrderType _exitOrderType = MoneyGenerator_v5.Strategies.OrderType.LevelCrossingExit;
     public MoneyGenerator_v5.Strategies.OrderType ExitOrderType
     {
@@ -7019,6 +7361,9 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _exitOrderType, value);
     }
 
+    /// <summary>
+    /// Тип расчета дистанции трейлинг-стопа
+    /// </summary>
     private PriceCalculationType _trailingStopExitCalculationType = PriceCalculationType.ATR;
     public PriceCalculationType TrailingStopExitCalculationType
     {
@@ -7026,18 +7371,35 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _trailingStopExitCalculationType, value);
     }
 
-    private decimal _trailingStopExitDistancePercent = 0.5m;
+    /// <summary>
+    /// Дистанция трейлинг-стопа (в процентах)
+    /// Расстояние от текущей цены до стопа
+    /// </summary>
+    private decimal _trailingStopExitDistancePercent = 0.3m;
     public decimal TrailingStopExitDistancePercent
     {
         get => _trailingStopExitDistancePercent;
         set => SetProperty(ref _trailingStopExitDistancePercent, value);
     }
 
+    /// <summary>
+    /// Дистанция трейлинг-стопа (в абсолютных величинах)
+    /// </summary>
     private decimal _trailingStopExitDistanceAbsolute = 2.0m;
     public decimal TrailingStopExitDistanceAbsolute
     {
         get => _trailingStopExitDistanceAbsolute;
         set => SetProperty(ref _trailingStopExitDistanceAbsolute, value);
+    }
+
+    /// <summary>
+    /// Множитель ATR для расчета дистанции трейлинг-стопа
+    /// </summary>
+    private decimal _trailingStopExitAtrMultiplier = 1.5m;
+    public decimal TrailingStopExitAtrMultiplier
+    {
+        get => _trailingStopExitAtrMultiplier;
+        set => SetProperty(ref _trailingStopExitAtrMultiplier, value);
     }
 
     private decimal _trailingStopExitSlippage = 0.01m;
@@ -7047,14 +7409,31 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _trailingStopExitSlippage, value);
     }
 
-    private decimal _trailingStopExitActivationPercent = 1m;
+    /// <summary>
+    /// УРОВЕНЬ АКТИВАЦИИ трейлинг-стопа (в процентах прибыли)
+    /// При какой прибыли активируется трейлинг-стоп
+    /// </summary>
+    private decimal _trailingStopExitActivationPercent = 0.5m;
     public decimal TrailingStopExitActivationPercent
     {
         get => _trailingStopExitActivationPercent;
         set => SetProperty(ref _trailingStopExitActivationPercent, value);
     }
 
-    // Параметры тейк-профита (для обычного выхода)
+    /// <summary>
+    /// ЗАЩИТНЫЙ СТОП (в процентах от цены входа)
+    /// Срабатывает до активации трейлинг-стопа
+    /// </summary>
+    private decimal _protectiveStopPercent = 0.5m;
+    public decimal ProtectiveStopPercent
+    {
+        get => _protectiveStopPercent;
+        set => SetProperty(ref _protectiveStopPercent, value);
+    }
+
+    // ============================================================
+    // ПАРАМЕТРЫ ТЕЙК-ПРОФИТА (для обычного выхода Market)
+    // ============================================================
     private PriceCalculationType _takeProfitCalculationType = PriceCalculationType.ATR;
     public PriceCalculationType TakeProfitCalculationType
     {
@@ -7076,6 +7455,13 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _takeProfitAbsolute, value);
     }
 
+    private decimal _takeProfitAtrMultiplier = 2.0m;
+    public decimal TakeProfitAtrMultiplier
+    {
+        get => _takeProfitAtrMultiplier;
+        set => SetProperty(ref _takeProfitAtrMultiplier, value);
+    }
+
     private decimal _takeProfitActivationPrice = 0m;
     public decimal TakeProfitActivationPrice
     {
@@ -7090,7 +7476,9 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _takeProfitSlippage, value);
     }
 
-    // Параметры стоп-лосса (для обычного выхода)
+    // ============================================================
+    // ПАРАМЕТРЫ СТОП-ЛОССА (для обычного выхода Market)
+    // ============================================================
     private PriceCalculationType _stopLossCalculationType = PriceCalculationType.ATR;
     public PriceCalculationType StopLossCalculationType
     {
@@ -7112,6 +7500,13 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _stopLossAbsolute, value);
     }
 
+    private decimal _stopLossAtrMultiplier = 1.5m;
+    public decimal StopLossAtrMultiplier
+    {
+        get => _stopLossAtrMultiplier;
+        set => SetProperty(ref _stopLossAtrMultiplier, value);
+    }
+
     private decimal _stopLossActivationPrice = 0m;
     public decimal StopLossActivationPrice
     {
@@ -7126,21 +7521,9 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _stopLossSlippage, value);
     }
 
-    // Общие параметры
-    private decimal _atrMultiplier = 1.5m;
-    public decimal AtrMultiplier
-    {
-        get => _atrMultiplier;
-        set => SetProperty(ref _atrMultiplier, value);
-    }
-
-    private decimal _protectiveStopPercent = 0.5m;
-    public decimal ProtectiveStopPercent
-    {
-        get => _protectiveStopPercent;
-        set => SetProperty(ref _protectiveStopPercent, value);
-    }
-
+    // ============================================================
+    // ОБЩИЕ ПАРАМЕТРЫ
+    // ============================================================
     private decimal _exitSlippage = 0.01m;
     public decimal ExitSlippage
     {
@@ -7148,7 +7531,6 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _exitSlippage, value);
     }
 
-    // Дополнительные параметры
     private bool _closeOnSignalReversal = false;
     public bool CloseOnSignalReversal
     {
@@ -7156,7 +7538,6 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _closeOnSignalReversal, value);
     }
 
-    // Размер позиции
     private decimal _orderSizePercent = 10m;
     public decimal OrderSizePercent
     {
@@ -7171,7 +7552,71 @@ public class RsiStrategyParameters : ObservableObject
         set => SetProperty(ref _fixedOrderSize, value);
     }
 
-    public MoneyGenerator_v5.Strategies.TakeProfitType TakeProfitType { get; internal set; }
+    private decimal _movingTPEntryTargetAtrMultiplier = 1.5m;
+    /// <summary>
+    /// ЦЕЛЬ для скользящего TP на входе (множитель ATR)
+    /// </summary>
+    public decimal MovingTPEntryTargetAtrMultiplier
+    {
+        get => _movingTPEntryTargetAtrMultiplier;
+        set => SetProperty(ref _movingTPEntryTargetAtrMultiplier, value);
+    }
+
+
+
+    // ============================================================
+    // УСТАРЕВШИЕ СВОЙСТВА (для обратной совместимости - удалить после рефакторинга)
+    // ============================================================
+    [Obsolete("Используйте MovingTPEntryActivationPercent вместо MovingTPEntryTargetPercent")]
+    public decimal MovingTPEntryTargetPercent
+    {
+        get => MovingTPEntryActivationPercent;
+        set => MovingTPEntryActivationPercent = value;
+    }
+
+    [Obsolete("Используйте MovingTPEntryActivationAbsolute вместо MovingTPEntryTargetAbsolute")]
+    public decimal MovingTPEntryTargetAbsolute
+    {
+        get => MovingTPEntryActivationAbsolute;
+        set => MovingTPEntryActivationAbsolute = value;
+    }
+
+    [Obsolete("Используйте MovingTPExitActivationPercent вместо MovingTPExitStartPercent")]
+    public decimal MovingTPExitStartPercent
+    {
+        get => MovingTPExitActivationPercent;
+        set => MovingTPExitActivationPercent = value;
+    }
+
+    [Obsolete("Используйте MovingTPExitActivationAbsolute вместо MovingTPExitStartAbsolute")]
+    public decimal MovingTPExitStartAbsolute
+    {
+        get => MovingTPExitActivationAbsolute;
+        set => MovingTPExitActivationAbsolute = value;
+    }
+
+    [Obsolete("Используйте MovingTPExitTargetAtrMultiplier или MovingTPExitOffsetAtrMultiplier")]
+    public decimal AtrOffSetMultiplierExit
+    {
+        get => MovingTPExitTargetAtrMultiplier;
+        set
+        {
+            MovingTPExitTargetAtrMultiplier = value;
+            MovingTPExitOffsetAtrMultiplier = value * 0.5m;
+        }
+    }
+
+    [Obsolete("Используйте MovingTPEntryTargetAtrMultiplier или MovingTPEntryOffsetAtrMultiplier")]
+    public decimal AtrOffSetMultiplierEntry
+    {
+        get => MovingTPEntryTargetAtrMultiplier;
+        set
+        {
+            MovingTPEntryTargetAtrMultiplier = value;
+            MovingTPEntryOffsetAtrMultiplier = value * 0.5m;
+        }
+    }
+
 
     public event Action<RsiStrategyParameters> OnParametersChanged;
 
@@ -7188,7 +7633,6 @@ public class RsiStrategyParameters : ObservableObject
 
     public void ResetParameters()
     {
-        // Сброс к значениям по умолчанию
         OscillatorType = OscillatorType.Stochastic;
         RsiPeriod = 14;
         RsiOverbought = 70;
@@ -7204,36 +7648,70 @@ public class RsiStrategyParameters : ObservableObject
         EntryStopOffsetPercent = 0.2m;
         EntrySlippage = 0.01m;
 
+        // Moving TP Entry
         MovingTPEntryCalculationType = PriceCalculationType.ATR;
-        MovingTPEntryTargetPercent = 2.0m;
+        MovingTPEntryActivationPercent = 2.0m;
+        MovingTPEntryActivationAbsolute = 10.0m;
+        MovingTPEntryOffsetPercent = 0.5m;
+        MovingTPEntryOffsetAbsolute = 2.0m;
+        MovingTPEntryAtrMultiplier = 1.5m;
         MovingTPEntrySlippage = 0.01m;
         MovingTPEntryTimeoutMinutes = 6000;
 
+
+        MovingTPEntryTargetAtrMultiplier = 1.5m;
+        MovingTPEntryOffsetAtrMultiplier = 0.5m;
+        MovingTPExitTargetAtrMultiplier = 1.5m;
+        MovingTPExitOffsetAtrMultiplier = 0.5m;
+
+
+
+        // Moving TP Exit
         MovingTPExitCalculationType = PriceCalculationType.ATR;
-        MovingTPExitStartPercent = 2.0m;
+        MovingTPExitActivationPercent = 2.0m;
+        MovingTPExitActivationAbsolute = 10.0m;
+        MovingTPExitOffsetPercent = 0.5m;
+        MovingTPExitOffsetAbsolute = 2.0m;
+        MovingTPExitAtrMultiplier = 1.5m;
         MovingTPExitSlippage = 0.01m;
         MovingTPExitTimeoutMinutes = 6000;
+
+        // Level Crossing Entry
+        LevelCrossingEntryProtectiveStopPercent = 0.25m;
+        LevelCrossingEntryProtectiveStopDistancePercent = 0.25m;
+
+        // Level Crossing Exit
+        LevelCrossingExitProtectiveStopPercent = 0.25m;
+        LevelCrossingExitProtectiveStopDistancePercent = 0.25m;
 
         ExitOrderType = MoneyGenerator_v5.Strategies.OrderType.LevelCrossingExit;
         TrailingStopExitCalculationType = PriceCalculationType.ATR;
         TrailingStopExitDistancePercent = 0.3m;
+        TrailingStopExitDistanceAbsolute = 2.0m;
+        TrailingStopExitAtrMultiplier = 1.5m;
         TrailingStopExitSlippage = 0.01m;
         TrailingStopExitActivationPercent = 0.5m;
         ProtectiveStopPercent = 0.5m;
 
         TakeProfitCalculationType = PriceCalculationType.ATR;
         TakeProfitPercent = 2.0m;
+        TakeProfitAbsolute = 10.0m;
+        TakeProfitAtrMultiplier = 2.0m;
         TakeProfitActivationPrice = 0m;
         TakeProfitSlippage = 0.01m;
 
+      
+
+
+
         StopLossCalculationType = PriceCalculationType.ATR;
         StopLossPercent = 1.0m;
+        StopLossAbsolute = 5.0m;
+        StopLossAtrMultiplier = 1.5m;
         StopLossActivationPrice = 0m;
         StopLossSlippage = 0.01m;
 
-        AtrMultiplier = 2m;
         ExitSlippage = 0.01m;
-
         OrderSizePercent = 10.0m;
         CloseOnSignalReversal = false;
 
