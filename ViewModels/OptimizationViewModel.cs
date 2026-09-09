@@ -50,7 +50,8 @@ namespace MoneyGenerator_v5.ViewModels
         // лимит на количество хранимых результатов (например, топ-1000 лучших)
         private const int MAX_RESULTS_TO_KEEP = 100000;
 
-       
+        // ✅ Хранилище для константных параметров (отдельно от оригинальных)
+        private readonly Dictionary<string, decimal> _constantParameters = new();
 
 
         #endregion
@@ -552,27 +553,28 @@ namespace MoneyGenerator_v5.ViewModels
             // ============================================================
             // Эти параметры добавляются как константные, но НЕ отображаются в UI
             // Они будут переданы в бэктест через словарь allParams
-            var constantParams = new Dictionary<string, decimal>
-            {
-                ["EntryOrderType"] = (decimal)rsiParams.EntryOrderType,
-                ["ExitOrderType"] = (decimal)rsiParams.ExitOrderType,
-                ["CloseOnSignalReversal"] = rsiParams.CloseOnSignalReversal ? 1 : 0,
-                ["EntrySlippage"] = rsiParams.EntrySlippage,
-                ["ExitSlippage"] = rsiParams.ExitSlippage,
-                ["MovingTPEntryTimeoutMinutes"] = rsiParams.MovingTPEntryTimeoutMinutes,
-                ["MovingTPExitTimeoutMinutes"] = rsiParams.MovingTPExitTimeoutMinutes,
-                ["MovingTPEntrySlippage"] = rsiParams.MovingTPEntrySlippage,
-                ["MovingTPExitSlippage"] = rsiParams.MovingTPExitSlippage,
-                ["MovingTPEntryCalculationType"] = (decimal)rsiParams.MovingTPEntryCalculationType,
-                ["MovingTPExitCalculationType"] = (decimal)rsiParams.MovingTPExitCalculationType,
-                ["OrderSizePercent"] = (decimal)rsiParams.OrderSizePercent,
-            };
+            _constantParameters.Clear();
+            _constantParameters["EntryOrderType"] = (decimal)rsiParams.EntryOrderType;
+            _constantParameters["ExitOrderType"] = (decimal)rsiParams.ExitOrderType;
+            _constantParameters["CloseOnSignalReversal"] = rsiParams.CloseOnSignalReversal ? 1 : 0;
+            _constantParameters["EntrySlippage"] = rsiParams.EntrySlippage;
+            _constantParameters["ExitSlippage"] = rsiParams.ExitSlippage;
+            _constantParameters["MovingTPEntryTimeoutMinutes"] = rsiParams.MovingTPEntryTimeoutMinutes;
+            _constantParameters["MovingTPExitTimeoutMinutes"] = rsiParams.MovingTPExitTimeoutMinutes;
+            _constantParameters["MovingTPEntrySlippage"] = rsiParams.MovingTPEntrySlippage;
+            _constantParameters["MovingTPExitSlippage"] = rsiParams.MovingTPExitSlippage;
+            _constantParameters["MovingTPEntryCalculationType"] = (decimal)rsiParams.MovingTPEntryCalculationType;
+            _constantParameters["MovingTPExitCalculationType"] = (decimal)rsiParams.MovingTPExitCalculationType;
+            _constantParameters["OrderSizePercent"] = rsiParams.OrderSizePercent;
 
             // ✅ Сохраняем константные параметры в отдельном словаре для использования в бэктесте
-            foreach (var kvp in constantParams)
+            foreach (var kvp in _constantParameters)
             {
                 _originalParameters[kvp.Key] = kvp.Value;
             }
+
+            Debug.WriteLine($"[AddRsiParameters] Сохранено {_constantParameters.Count} константных параметров");
+
 
             // ============================================================
             // 1. ПАРАМЕТРЫ ОСЦИЛЛЯТОРА - ОТОБРАЖАЮТСЯ В UI
@@ -2796,17 +2798,22 @@ namespace MoneyGenerator_v5.ViewModels
                 // ✅ Получаем все параметры из коллекции (только те, что в UI)
                 var allParams = Parameters.ToDictionary(p => p.Name, p => p.CurrentValue);
 
-                // ✅ ДОБАВЛЯЕМ КОНСТАНТНЫЕ ПАРАМЕТРЫ (которые скрыты из UI)
-                // Они уже сохранены в _originalParameters
-                foreach (var kvp in _originalParameters)
+                // ✅ ДОБАВЛЯЕМ КОНСТАНТНЫЕ ПАРАМЕТРЫ ИЗ _constantParameters
+                foreach (var kvp in _constantParameters)
                 {
                     if (!allParams.ContainsKey(kvp.Key))
                     {
                         allParams[kvp.Key] = kvp.Value;
                         Debug.WriteLine($"[RunOptimizationAsync] Добавлен константный параметр: {kvp.Key} = {kvp.Value}");
                     }
+                    else
+                    {
+                        // ✅ Если параметр уже есть в UI, но он должен быть константным - 
+                        // перезаписываем значением из _constantParameters
+                        allParams[kvp.Key] = kvp.Value;
+                        Debug.WriteLine($"[RunOptimizationAsync] Обновлен константный параметр: {kvp.Key} = {kvp.Value}");
+                    }
                 }
-
 
                 Debug.WriteLine($"[RunOptimizationAsync] Всего параметров (включая константные): {allParams.Count}");
 
@@ -2957,7 +2964,7 @@ namespace MoneyGenerator_v5.ViewModels
                                     {
                                         Application.Current.Dispatcher.Invoke(() =>
                                         {
-                                            const int MAX_RESULTS_TO_KEEP = 100000000; //  Пока для проверки поставил гигантское число что бы отследить все варианты результатов оптимизации 
+                                            const int MAX_RESULTS_TO_KEEP = 1000; //  Пока для проверки поставил гигантское число что бы отследить все варианты результатов оптимизации 
 
                                             if (Results.Count >= MAX_RESULTS_TO_KEEP)
                                             {
@@ -3811,47 +3818,44 @@ namespace MoneyGenerator_v5.ViewModels
 
             try
             {
-                // ============================================================
-                // 1. ОБНОВЛЕНИЕ ПАРАМЕТРОВ В ЗАВИСИМОСТИ ОТ ТИПА СТРАТЕГИИ
-                // ============================================================
                 switch (_strategyType)
                 {
                     case "MA":
                         RefreshMaParameters();
                         break;
-
                     case "RSI":
                         RefreshRsiParameters();
                         break;
-
                     case "PairsTrading":
                         RefreshPairsTradingParameters();
                         break;
-
                     case "Rating":
                         RefreshRatingParameters();
                         break;
-
                     default:
                         Debug.WriteLine($"[RefreshOptimizationParameters] Неизвестный тип стратегии: {_strategyType}");
                         break;
                 }
 
-                // ============================================================
-                // 2. ОБЩИЕ ДЕЙСТВИЯ ДЛЯ ВСЕХ СТРАТЕГИЙ
-                // ============================================================
-
-                // ✅ Обновляем словарь оригинальных параметров для кнопки "Восстановить"
+                // ✅ ВАЖНО: После обновления параметров, перезаписываем _originalParameters
+                // из _constantParameters + текущих значений UI параметров
                 _originalParameters.Clear();
+
+                // Сначала добавляем константные
+                foreach (var kvp in _constantParameters)
+                {
+                    _originalParameters[kvp.Key] = kvp.Value;
+                }
+
+                // Затем добавляем UI параметры
                 foreach (var param in Parameters)
                 {
                     _originalParameters[param.Name] = param.CurrentValue;
                 }
 
-                // ✅ Пересчитываем количество комбинаций
-                UpdateTotalCombinations();
+                Debug.WriteLine($"[RefreshOptimizationParameters] _originalParameters содержит {_originalParameters.Count} параметров");
 
-                // ✅ Принудительно обновляем UI
+                UpdateTotalCombinations();
                 OnPropertyChanged(nameof(Parameters));
                 RefreshCommands();
 
@@ -4080,7 +4084,7 @@ namespace MoneyGenerator_v5.ViewModels
 
         /// <summary>
         /// Обновляет параметры RSI стратегии
-        /// ✅ ИСПРАВЛЕНО: принудительное обновление UI через замену элемента в коллекции
+        /// ✅ ИСПРАВЛЕНО: сохраняем константные параметры при обновлении
         /// </summary>
         private void RefreshRsiParameters()
         {
@@ -4110,6 +4114,29 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine($"  StochOversold = {rsiParams.StochOversold}");
             Debug.WriteLine($"  EntryOrderType = {rsiParams.EntryOrderType}");
             Debug.WriteLine($"  ExitOrderType = {rsiParams.ExitOrderType}");
+
+            // ✅ Сохраняем текущие константные параметры из стратегии
+            _constantParameters.Clear();
+            _constantParameters["EntryOrderType"] = (decimal)rsiParams.EntryOrderType;
+            _constantParameters["ExitOrderType"] = (decimal)rsiParams.ExitOrderType;
+            _constantParameters["CloseOnSignalReversal"] = rsiParams.CloseOnSignalReversal ? 1 : 0;
+            _constantParameters["EntrySlippage"] = rsiParams.EntrySlippage;
+            _constantParameters["ExitSlippage"] = rsiParams.ExitSlippage;
+            _constantParameters["MovingTPEntryTimeoutMinutes"] = rsiParams.MovingTPEntryTimeoutMinutes;
+            _constantParameters["MovingTPExitTimeoutMinutes"] = rsiParams.MovingTPExitTimeoutMinutes;
+            _constantParameters["MovingTPEntrySlippage"] = rsiParams.MovingTPEntrySlippage;
+            _constantParameters["MovingTPExitSlippage"] = rsiParams.MovingTPExitSlippage;
+            _constantParameters["MovingTPEntryCalculationType"] = (decimal)rsiParams.MovingTPEntryCalculationType;
+            _constantParameters["MovingTPExitCalculationType"] = (decimal)rsiParams.MovingTPExitCalculationType;
+            _constantParameters["OrderSizePercent"] = rsiParams.OrderSizePercent;
+
+            // ✅ ОБНОВЛЯЕМ _originalParameters с новыми константными значениями
+            foreach (var kvp in _constantParameters)
+            {
+                _originalParameters[kvp.Key] = kvp.Value;
+            }
+
+            Debug.WriteLine($"[RefreshRsiParameters] Обновлено {_constantParameters.Count} константных параметров");
 
             // ✅ Сохраняем текущий список для сравнения
             var parametersToUpdate = Parameters.ToList();
@@ -4236,18 +4263,16 @@ namespace MoneyGenerator_v5.ViewModels
                         found = true;
                         break;
 
-                    // ✅ ИСПРАВЛЕНО: читаем из НОВОГО поля MovingTPEntryTargetAtrMultiplier
                     case "MovingTPEntryTargetAtrMultiplier":
                         newValue = rsiParams.MovingTPEntryTargetAtrMultiplier;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2} (из MovingTPEntryTargetAtrMultiplier)");
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2}");
                         break;
 
-                    // ✅ ИСПРАВЛЕНО: читаем из НОВОГО поля MovingTPEntryOffsetAtrMultiplier
                     case "MovingTPEntryOffsetAtrMultiplier":
                         newValue = rsiParams.MovingTPEntryOffsetAtrMultiplier;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2} (из MovingTPEntryOffsetAtrMultiplier)");
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2}");
                         break;
 
                     case "MovingTPEntryOffsetPercent":
@@ -4288,18 +4313,16 @@ namespace MoneyGenerator_v5.ViewModels
                         found = true;
                         break;
 
-                    // ✅ ИСПРАВЛЕНО: читаем из НОВОГО поля MovingTPExitTargetAtrMultiplier
                     case "MovingTPExitTargetAtrMultiplier":
                         newValue = rsiParams.MovingTPExitTargetAtrMultiplier;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2} (из MovingTPExitTargetAtrMultiplier)");
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2}");
                         break;
 
-                    // ✅ ИСПРАВЛЕНО: читаем из НОВОГО поля MovingTPExitOffsetAtrMultiplier
                     case "MovingTPExitOffsetAtrMultiplier":
                         newValue = rsiParams.MovingTPExitOffsetAtrMultiplier;
                         found = true;
-                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2} (из MovingTPExitOffsetAtrMultiplier)");
+                        Debug.WriteLine($"[RefreshRsiParameters] Обновлен {param.Name} = {newValue:F2}");
                         break;
 
                     case "MovingTPExitOffsetPercent":
@@ -4467,7 +4490,6 @@ namespace MoneyGenerator_v5.ViewModels
 
                 if (found)
                 {
-                    // ✅ КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Обновляем CurrentValue
                     if (param.CurrentValue != newValue)
                     {
                         param.CurrentValue = newValue;
@@ -4484,13 +4506,10 @@ namespace MoneyGenerator_v5.ViewModels
             Debug.WriteLine($"[RefreshRsiParameters] Обновлено {updatedCount} параметров");
 
             // ✅ ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ UI
-            // Пересоздаем коллекцию, чтобы UI точно обновился
             if (updatedCount > 0)
             {
-                // Сохраняем выбранные параметры
                 var selectedStates = Parameters.ToDictionary(p => p.Name, p => p.IsSelected);
 
-                // Создаем новую коллекцию
                 var newParameters = new ObservableCollection<OptimizationParameter>();
                 foreach (var param in Parameters)
                 {
@@ -4507,12 +4526,8 @@ namespace MoneyGenerator_v5.ViewModels
                     newParameters.Add(newParam);
                 }
 
-                // Заменяем коллекцию
                 Parameters = newParameters;
-
-                // ✅ ВАЖНО: Переподписываемся на изменения новых параметров
                 SubscribeToParameterChanges();
-
                 Debug.WriteLine("[RefreshRsiParameters] UI принудительно обновлен через замену коллекции");
             }
 
